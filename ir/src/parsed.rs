@@ -1,22 +1,22 @@
 use core::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Clone)]
 pub struct Function {
-    name: Identifier,
-    arguments: Vec<Argument>,
-    generics: Vec<Identifier>,
-    body: Expr,
+    pub name: Identifier,
+    pub arguments: Vec<Argument>,
+    pub generics: Vec<Identifier>,
+    pub body: Expr,
 }
 
 #[derive(Clone)]
 pub struct Argument {
-    name: Identifier,
-    typ: Type,
+    pub name: Identifier,
+    pub typ: Type,
 }
 
 #[derive(Clone)]
@@ -28,6 +28,7 @@ pub enum Expr {
     },
     FunctionCall {
         function: Identifier,
+        generics: Vec<Type>,
         arguments: Vec<Expr>,
     },
 }
@@ -109,9 +110,24 @@ impl fmt::Debug for Expr {
             Expr::Variable { name, typ } => write!(f, "{:?}", name),
             Expr::FunctionCall {
                 function,
+                generics,
                 arguments,
             } => {
-                write!(f, "{:?}(", function)?;
+                write!(f, "{:?}", function)?;
+                if !generics.is_empty() {
+                    write!(f, "[")?;
+                    let mut first = true;
+                    for generic in generics {
+                        if first {
+                            first = false;
+                            write!(f, "{:?}", generic)?;
+                        } else {
+                            write!(f, ", {:?}", generic)?;
+                        }
+                    }
+                    write!(f, "]")?;
+                }
+                write!(f, "(")?;
                 let mut first = true;
                 for arg in arguments {
                     if first {

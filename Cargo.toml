@@ -16,3 +16,7 @@ members = [
 ]
 
 [dependencies]
+ir = { path = "ir" }
+parser = { path = "parser" }
+flatten = { path = "flatten" }
+codegen = { path = "codegen" }
