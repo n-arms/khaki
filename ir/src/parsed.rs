@@ -10,6 +10,7 @@ pub struct Function {
     pub name: Identifier,
     pub arguments: Vec<Argument>,
     pub generics: Vec<Identifier>,
+    pub result: Type,
     pub body: Expr,
 }
 
@@ -72,7 +73,7 @@ impl fmt::Debug for Function {
                 write!(f, ", {:?}: {:?}", name, typ)?;
             }
         }
-        write!(f, ") = {:?}", self.body)
+        write!(f, ") -> {:?} = {:?}", self.result, self.body)
     }
 }
 

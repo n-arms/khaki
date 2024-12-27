@@ -95,12 +95,16 @@ fn function() -> parser!(Function) {
                 .then_ignore(just(')')),
         )
         .then_ignore(whitespace())
+        .then_ignore(just('-'))
+        .then_ignore(just('>'))
+        .then(typ())
         .then_ignore(just('='))
         .then(expr())
-        .map(|(((name, generics), arguments), body)| Function {
+        .map(|((((name, generics), arguments), result), body)| Function {
             name,
             arguments,
             generics,
+            result,
             body,
         }))
 }

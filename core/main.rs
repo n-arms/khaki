@@ -1,4 +1,3 @@
-use flatten;
 use parser::parse_program;
 
 use std::io::{self, BufRead};
@@ -11,9 +10,11 @@ fn main() {
         if line == "" {
             let parsed = parse_program(&text).unwrap();
             let flat = flatten::program(parsed);
-            for func in flat {
+            for func in &flat {
                 println!("{:?}", func);
             }
+            let gen = codegen::program(&flat);
+            println!("{}", gen);
             text.clear();
         }
         text.push_str(&line);

@@ -14,7 +14,7 @@ impl Env {
         let tag = self.names.take();
         self.names.set(tag + 1);
         Identifier {
-            name: format!("{tag}_{}", base.name),
+            name: format!("{}_{tag}", base.name),
         }
     }
 }
@@ -52,12 +52,13 @@ fn function(
             typ: replace_type(arg.typ, generics.clone()),
         })
         .collect();
-    let flat_body = expr(replace_expr(to_flat.body, generics), env, bank);
+    let flat_body = expr(replace_expr(to_flat.body, generics.clone()), env, bank);
     bank.push(Function {
         name,
         arguments: flat_args,
         generics: Vec::new(),
         body: flat_body,
+        result: replace_type(to_flat.result, generics),
     });
 }
 
