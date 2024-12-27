@@ -85,6 +85,14 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
                 arguments: flat_args,
             }
         }
+        Expr::Function {
+            captures,
+            arguments,
+            result,
+            body,
+        } => {
+            todo!()
+        }
     }
 }
 
@@ -110,6 +118,35 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .map(|arg| replace_expr(arg, generics.clone()))
                 .collect(),
         },
+        Expr::Function {
+            captures,
+            arguments,
+            result,
+            body,
+        } => {
+            let captures = captures
+                .into_iter()
+                .map(|arg| Argument {
+                    name: arg.name,
+                    typ: replace_type(arg.typ, generics.clone()),
+                })
+                .collect();
+            let arguments = arguments
+                .into_iter()
+                .map(|arg| Argument {
+                    name: arg.name,
+                    typ: replace_type(arg.typ, generics.clone()),
+                })
+                .collect();
+            let result = replace_type(result, generics.clone());
+            let body = replace_expr(*body, generics);
+            Expr::Function {
+                captures,
+                arguments,
+                result,
+                body: Box::new(body),
+            }
+        }
     }
 }
 

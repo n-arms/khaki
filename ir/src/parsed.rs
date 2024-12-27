@@ -5,6 +5,12 @@ pub struct Identifier {
     pub name: String,
 }
 
+impl<'a> From<&'a str> for Identifier {
+    fn from(value: &'a str) -> Self {
+        Self { name: value.into() }
+    }
+}
+
 #[derive(Clone)]
 pub struct Function {
     pub name: Identifier,
@@ -32,6 +38,12 @@ pub enum Expr {
         generics: Vec<Type>,
         arguments: Vec<Expr>,
     },
+    Function {
+        captures: Vec<Argument>,
+        arguments: Vec<Argument>,
+        result: Type,
+        body: Box<Expr>,
+    },
 }
 
 #[derive(Clone)]
@@ -47,32 +59,38 @@ impl fmt::Debug for Identifier {
     }
 }
 
+impl fmt::Debug for Argument {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}: {:?}", self.name, self.typ)
+    }
+}
+
+fn comma_list<I: fmt::Debug>(
+    f: &mut fmt::Formatter<'_>,
+    list: impl IntoIterator<Item = I>,
+) -> fmt::Result {
+    let mut first = true;
+    for elem in list {
+        if first {
+            first = false;
+        } else {
+            write!(f, ", ")?;
+        }
+        write!(f, "{:?}", elem)?;
+    }
+    Ok(())
+}
+
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {:?}", self.name)?;
         if !self.generics.is_empty() {
             write!(f, "[")?;
-            let mut first = true;
-            for generic in &self.generics {
-                if first {
-                    write!(f, "{:?}", generic)?;
-                    first = false;
-                } else {
-                    write!(f, ", {:?}", generic)?;
-                }
-            }
+            comma_list(f, &self.generics)?;
             write!(f, "]")?;
         }
         write!(f, "(")?;
-        let mut first = true;
-        for Argument { name, typ } in &self.arguments {
-            if first {
-                write!(f, "{:?}: {:?}", name, typ)?;
-                first = false;
-            } else {
-                write!(f, ", {:?}: {:?}", name, typ)?;
-            }
-        }
+        comma_list(f, &self.arguments)?;
         write!(f, ") -> {:?} = {:?}", self.result, self.body)
     }
 }
@@ -86,15 +104,7 @@ impl fmt::Debug for Type {
                     write!(f, "{:?}", args[0])?;
                 } else {
                     write!(f, "(")?;
-                    let mut first = true;
-                    for arg in args {
-                        if first {
-                            first = false;
-                            write!(f, "{:?}", arg)?;
-                        } else {
-                            write!(f, ", {:?}", arg)?;
-                        }
-                    }
+                    comma_list(f, args)?;
                     write!(f, ")")?;
                 }
                 write!(f, " -> {:?}", result)
@@ -117,28 +127,24 @@ impl fmt::Debug for Expr {
                 write!(f, "{:?}", function)?;
                 if !generics.is_empty() {
                     write!(f, "[")?;
-                    let mut first = true;
-                    for generic in generics {
-                        if first {
-                            first = false;
-                            write!(f, "{:?}", generic)?;
-                        } else {
-                            write!(f, ", {:?}", generic)?;
-                        }
-                    }
+                    comma_list(f, generics)?;
                     write!(f, "]")?;
                 }
                 write!(f, "(")?;
-                let mut first = true;
-                for arg in arguments {
-                    if first {
-                        first = false;
-                        write!(f, "{:?}", arg)?;
-                    } else {
-                        write!(f, ", {:?}", arg)?;
-                    }
-                }
+                comma_list(f, arguments)?;
                 write!(f, ")")
+            }
+            Expr::Function {
+                captures,
+                arguments,
+                result,
+                body,
+            } => {
+                write!(f, "[")?;
+                comma_list(f, captures)?;
+                write!(f, "](")?;
+                comma_list(f, arguments)?;
+                write!(f, ") -> {:?} = {:?}", result, body)
             }
         }
     }
