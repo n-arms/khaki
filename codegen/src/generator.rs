@@ -1,4 +1,10 @@
-use std::io;
+macro_rules! generate {
+    ($gen:expr, $format:literal $(, $arg:expr)*) => {
+        $gen.push_str(&format!($format $(, $arg)*));
+    };
+}
+
+pub(crate) use generate;
 
 #[derive(Default)]
 pub struct Generator {
@@ -63,19 +69,6 @@ impl Generator {
             self.newline();
         }
         self.text
-    }
-}
-
-impl io::Write for Generator {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        for byte in buf {
-            self.push(*byte as char);
-        }
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 

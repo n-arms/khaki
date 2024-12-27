@@ -1,6 +1,5 @@
-use generator::{Env, Generator};
+use generator::{generate, Env, Generator};
 use ir::parsed::{Expr, Function, Type};
-use std::io::Write;
 
 mod generator;
 
@@ -24,22 +23,22 @@ fn preamble(env: &mut Env) {}
 
 fn forward_function(func: &Function, env: &mut Env) {
     let result = typ_to_string(&func.result, env);
-    write!(&mut env.main, "{} {:?}(", result, &func.name);
+    generate!(&mut env.main, "{} {:?}(", result, &func.name);
     let args: Vec<_> = func
         .arguments
         .iter()
         .map(|arg| typ_to_string(&arg.typ, env))
         .collect();
     env.main.comma_list(args, |gen, arg| {
-        write!(gen, "{}", arg);
+        generate!(gen, "{}", arg);
     });
-    write!(&mut env.main, ");");
+    generate!(&mut env.main, ");");
     env.main.newline();
 }
 
 fn function(func: &Function, env: &mut Env) {
     let result = typ_to_string(&func.result, env);
-    write!(&mut env.main, "{} {:?}(", result, &func.name);
+    generate!(&mut env.main, "{} {:?}(", result, &func.name);
     let args: Vec<_> = func
         .arguments
         .iter()
@@ -47,19 +46,19 @@ fn function(func: &Function, env: &mut Env) {
         .collect();
     env.main
         .comma_list(args.into_iter().zip(&func.arguments), |gen, (typ, arg)| {
-            write!(gen, "{} {}", typ, arg.name.name);
+            generate!(gen, "{} {}", typ, arg.name.name);
         });
-    write!(&mut env.main, ") {{");
+    generate!(&mut env.main, ") {{");
     env.main.newline();
     env.main.inc();
 
     let result = expr(&func.body, env);
 
-    write!(&mut env.main, "return {result};");
+    generate!(&mut env.main, "return {result};");
     env.main.newline();
 
     env.main.dec();
-    write!(&mut env.main, "}}");
+    generate!(&mut env.main, "}}");
     env.main.newline();
 }
 
@@ -98,12 +97,12 @@ fn typ_to_string(typ: &Type, env: &mut Env) -> String {
         Type::Function(args, result) => {
             let name = env.fresh_name("fp");
             let result = typ_to_string(&result, env);
-            write!(&mut env.preamble, "typedef {} (*{})(", result, &name);
+            generate!(&mut env.preamble, "typedef {} (*{})(", result, &name);
             env.preamble.comma_list(args, |gen, arg| {
-                write!(gen, "{:?}", arg);
+                generate!(gen, "{:?}", arg);
             });
 
-            write!(&mut env.preamble, ");");
+            generate!(&mut env.preamble, ");");
             env.preamble.newline();
             name
         }
