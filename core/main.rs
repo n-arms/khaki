@@ -21,3 +21,36 @@ fn main() {
         text.push('\n');
     }
 }
+
+fn codegen_program(program: &str) {
+    let parsed = parse_program(&program).unwrap();
+    let flat = flatten::program(parsed);
+    for func in &flat {
+        println!("{:?}", func);
+    }
+    let gen = codegen::program(&flat);
+    println!("{}", gen);
+}
+
+mod test {
+    use super::*;
+
+    #[test]
+    fn trivial() {
+        codegen_program(
+            r#"
+            fn main() -> Int = 3
+        "#,
+        );
+    }
+
+    #[test]
+    fn monomorph() {
+        codegen_program(
+            r#"
+            fn id[t](x: t) -> t = x
+            fn main() -> Int = id[Int](3)
+            "#,
+        )
+    }
+}

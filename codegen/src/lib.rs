@@ -87,6 +87,13 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
             output.push(')');
             output
         }
+        Expr::Function {
+            captures,
+            arguments,
+            result,
+            body,
+            set,
+        } => todo!(),
     }
 }
 
@@ -94,7 +101,7 @@ fn typ_to_string(typ: &Type, env: &mut Env) -> String {
     match typ {
         Type::Integer => String::from("int"),
         Type::Variable(var) => panic!("codegen with unresolved generic {:?}", var),
-        Type::Function(args, result) => {
+        Type::Function(args, result, set) => {
             let name = env.fresh_name("fp");
             let result = typ_to_string(&result, env);
             generate!(&mut env.preamble, "typedef {} (*{})(", result, &name);

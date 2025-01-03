@@ -104,7 +104,16 @@ dependencies = [
  "codegen",
  "flatten",
  "ir",
+ "lambda-set",
  "parser",
+]
+
+[[package]]
+name = "lambda-set"
+version = "0.1.0"
+dependencies = [
+ "im",
+ "ir",
 ]
 
 [[package]]

@@ -70,6 +70,7 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
             function: func_name,
             generics,
             arguments,
+            set,
         } => {
             let func = env.functions.get(&func_name).unwrap().clone();
             let flat_func = env.fresh_from(func.name.clone());
@@ -83,12 +84,14 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
                 function: flat_func,
                 generics: Vec::new(),
                 arguments: flat_args,
+                set,
             }
         }
         Expr::Function {
             captures,
             arguments,
             result,
+            set,
             body,
         } => {
             todo!()
@@ -107,6 +110,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
             function,
             generics: call_generics,
             arguments,
+            set,
         } => Expr::FunctionCall {
             function,
             generics: call_generics
@@ -117,12 +121,14 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .into_iter()
                 .map(|arg| replace_expr(arg, generics.clone()))
                 .collect(),
+            set,
         },
         Expr::Function {
             captures,
             arguments,
             result,
             body,
+            set,
         } => {
             let captures = captures
                 .into_iter()
@@ -145,6 +151,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 arguments,
                 result,
                 body: Box::new(body),
+                set,
             }
         }
     }
@@ -160,12 +167,13 @@ fn replace_type(typ: Type, generics: HashMap<Identifier, Type>) -> Type {
                 Type::Variable(generic)
             }
         }
-        Type::Function(arguments, function) => Type::Function(
+        Type::Function(arguments, function, set) => Type::Function(
             arguments
                 .into_iter()
                 .map(|arg| replace_type(arg, generics.clone()))
                 .collect(),
             Box::new(replace_type(*function, generics)),
+            set,
         ),
     }
 }

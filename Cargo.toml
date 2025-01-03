@@ -12,11 +12,13 @@ members = [
   "ir",
   "parser",
   "flatten",
-  "codegen"
+  "codegen", 
+  "lambda-set"
 ]
 
 [dependencies]
 ir = { path = "ir" }
 parser = { path = "parser" }
+lambda-set = { path = "lambda-set" }
 flatten = { path = "flatten" }
 codegen = { path = "codegen" }

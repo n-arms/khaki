@@ -46,7 +46,7 @@ fn typ() -> parser!(Type) {
                 .then_ignore(whitespace())
                 .then_ignore(keyword("->"))
                 .then(typ)
-                .map(|(args, result)| Type::Function(args, Box::new(result)))))
+                .map(|(args, result)| Type::Function(args, Box::new(result), LambdaSet::dummy()))))
     })
 }
 
@@ -73,6 +73,7 @@ fn expr() -> parser!(Expr) {
                 function,
                 generics,
                 arguments,
+                set: LambdaSet::dummy(),
             });
         pad(integer.or(call).or(variable))
     })
