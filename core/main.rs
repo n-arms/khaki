@@ -102,4 +102,14 @@ mod test {
         "#,
         )
     }
+
+    #[test]
+    fn tuple_access() {
+        codegen_program(
+            r#"
+            fn swap[a, b](tuple: <|a, b|>) -> <|b, a|> = <|tuple.1, tuple.0|>
+            fn main() -> <|Int, Int|> = swap[Int, Int](<|3, 4|>)
+        "#,
+        );
+    }
 }

@@ -73,6 +73,7 @@ pub enum Expr {
         name: Identifier,
     },
     Tuple(Vec<Expr>),
+    TupleAccess(Box<Expr>, usize),
 }
 
 impl Expr {
@@ -88,6 +89,13 @@ impl Expr {
             } => todo!(),
             Expr::Function { result, .. } => result.clone(),
             Expr::Tuple(elems) => Type::Tuple(elems.iter().map(|e| e.typ()).collect()),
+            Expr::TupleAccess(tuple, field) => {
+                if let Type::Tuple(elems) = tuple.typ() {
+                    elems[*field].clone()
+                } else {
+                    unreachable!()
+                }
+            }
         }
     }
 }
@@ -310,6 +318,7 @@ impl fmt::Debug for Expr {
                 comma_list(f, elems)?;
                 write!(f, "|>")
             }
+            Expr::TupleAccess(tuple, field) => write!(f, "{:?}.{}", tuple.as_ref(), field),
         }
     }
 }

@@ -114,6 +114,9 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
             output.push_str(" }");
             output
         }
+        Expr::TupleAccess(tuple, field) => {
+            format!("({}).field{}", expr(&tuple, env), field)
+        }
     }
 }
 

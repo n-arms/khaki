@@ -134,6 +134,9 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
                 patch_expr(elem, patcher);
             }
         }
+        Expr::TupleAccess(tuple, _) => {
+            patch_expr(tuple.as_mut(), patcher);
+        }
     }
 }
 
@@ -211,6 +214,15 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
                 .map(|elem| infer_expr(elem, env.clone(), uf))
                 .collect();
             Type::Tuple(typs)
+        }
+        Expr::TupleAccess(tuple, field) => {
+            let tuple_typ = infer_expr(tuple.as_mut(), env, uf);
+
+            if let Type::Tuple(elems) = tuple_typ {
+                elems[*field].clone()
+            } else {
+                unreachable!()
+            }
         }
     }
 }

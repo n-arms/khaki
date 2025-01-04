@@ -111,7 +111,14 @@ fn expr() -> parser!(Expr) {
             .then_ignore(just('|'))
             .then_ignore(just('>'))
             .map(|elems| Expr::Tuple(elems));
-        pad(integer.or(call).or(variable).or(function).or(tuple))
+        let access = pad(just('.').ignore_then(whitespace()).ignore_then(int(10)));
+        pad(integer
+            .or(call)
+            .or(variable)
+            .or(function)
+            .or(tuple)
+            .then(access.repeated())
+            .foldl(|expr, access| Expr::TupleAccess(Box::new(expr), access.parse().unwrap())))
     })
 }
 

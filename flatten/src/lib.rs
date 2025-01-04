@@ -108,6 +108,9 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
                 .map(|elem| expr(elem, env.clone(), bank))
                 .collect(),
         ),
+        Expr::TupleAccess(tuple, field) => {
+            Expr::TupleAccess(Box::new(expr(*tuple, env, bank)), field)
+        }
     }
 }
 
@@ -174,6 +177,9 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .map(|elem| replace_expr(elem, generics.clone()))
                 .collect(),
         ),
+        Expr::TupleAccess(tuple, field) => {
+            Expr::TupleAccess(Box::new(replace_expr(*tuple, generics)), field)
+        }
     }
 }
 
