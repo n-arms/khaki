@@ -45,9 +45,15 @@ fn typ() -> parser!(Type) {
             .then_ignore(whitespace())
             .then_ignore(just('-'))
             .then_ignore(just('>'))
-            .then(typ)
+            .then(typ.clone())
             .map(|(args, result)| Type::Function(args, Box::new(result), LambdaSet::dummy()));
-        pad(func.or(int).or(var))
+        let tuple = just('<')
+            .ignore_then(just('|'))
+            .ignore_then(comma_list(typ.clone()))
+            .then_ignore(just('|'))
+            .then_ignore(just('>'))
+            .map(|elems| Type::Tuple(elems));
+        pad(func.or(int).or(var).or(tuple))
     })
 }
 

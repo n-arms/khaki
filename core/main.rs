@@ -93,4 +93,13 @@ mod test {
         "#,
         )
     }
+
+    #[test]
+    fn tuple_construction() {
+        codegen_program(
+            r#"
+            fn main() -> <|Int, Int|> = <|3, 4|>
+        "#,
+        )
+    }
 }

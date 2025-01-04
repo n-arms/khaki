@@ -21,6 +21,12 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
 
             union_type(&res1, &res2, uf);
         }
+        (Tuple(elems1), Tuple(elems2)) => {
+            assert_eq!(elems1.len(), elems2.len());
+            for (e1, e2) in elems1.iter().zip(elems2.iter()) {
+                union_type(e1, e2, uf);
+            }
+        }
         _ => panic!(),
     }
 }

@@ -116,6 +116,7 @@ impl Env {
 
 fn generate_tuple_struct(tuple: &[Type], name: Identifier, env: &mut Env) {
     generate!(&mut env.preamble, "struct {} {{", name.name);
+    env.preamble.newline();
     env.preamble.inc();
     for (i, typ) in tuple.iter().enumerate() {
         let typ_name = typ_to_string(typ, env);
@@ -123,4 +124,5 @@ fn generate_tuple_struct(tuple: &[Type], name: Identifier, env: &mut Env) {
         env.preamble.newline();
     }
     env.preamble.dec();
+    generate!(&mut env.preamble, "}};");
 }

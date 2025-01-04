@@ -111,7 +111,7 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
                 output.push(' ');
                 output.push_str(&expr(elem, env));
             }
-            output.push_str(" }}");
+            output.push_str(" }");
             output
         }
     }
