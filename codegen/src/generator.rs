@@ -41,13 +41,15 @@ impl Program {
     }
 
     pub fn generate(self) -> String {
+        let mut output = String::new();
         for def in self.defs {
-            def.generate();
+            output.push_str(&def.generate());
         }
 
         for func in self.functions {
-            func.generate();
+            output.push_str(&func.generate());
         }
+        output
     }
 }
 
