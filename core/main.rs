@@ -19,7 +19,7 @@ fn main() {
                 }
             };
             let mut flat = flatten::program(parsed);
-            lambda_set::program(&mut flat.functions);
+            lambda_set::program(&mut flat);
             for func in &flat.functions {
                 println!("{:?}", func);
             }
@@ -53,7 +53,7 @@ fn parse_error(text: &str, error: Simple<char>) {
 fn codegen_program(program: &str) {
     let parsed = parse_program(&program).unwrap();
     let mut flat = flatten::program(parsed);
-    lambda_set::program(&mut flat.functions);
+    lambda_set::program(&mut flat);
     for func in &flat.functions {
         println!("{:?}", func);
     }

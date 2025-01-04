@@ -102,6 +102,17 @@ pub enum Expr {
         tag: Identifier,
         argument: Box<Expr>,
     },
+    Match {
+        head: Box<Expr>,
+        cases: Vec<MatchCase>,
+    },
+}
+
+#[derive(Clone)]
+pub struct MatchCase {
+    pub variant: Identifier,
+    pub binding: Identifier,
+    pub body: Expr,
 }
 
 impl Expr {
@@ -125,6 +136,7 @@ impl Expr {
                 }
             }
             Expr::Enum { typ, tag, argument } => Type::Constructor(typ.clone()),
+            Expr::Match { cases, .. } => cases[0].body.typ(),
         }
     }
 }
@@ -353,6 +365,21 @@ impl fmt::Debug for Expr {
             Expr::Enum { typ, tag, argument } => {
                 write!(f, "{:?}::{:?}({:?})", typ, tag, argument)
             }
+            Expr::Match { head: expr, cases } => {
+                write!(f, "match {:?} {{", expr)?;
+                comma_list(f, cases)?;
+                write!(f, "}}")
+            }
         }
+    }
+}
+
+impl fmt::Debug for MatchCase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}({:?}) => {:?}",
+            self.variant, self.binding, self.body
+        )
     }
 }

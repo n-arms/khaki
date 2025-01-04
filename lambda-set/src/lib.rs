@@ -1,7 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Expr, Function, Identifier, Type};
+use ir::parsed::{Enum, Expr, Function, Identifier, Program, Type};
 use union_find::UnionFind;
 
 mod union_find;
@@ -32,26 +32,26 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
     }
 }
 
-pub fn program(functions: &mut [Function]) {
+pub fn program(prog: &mut Program) {
     let mut env = HashMap::new();
 
     let mut uf = UnionFind::new();
 
-    for func in functions.iter() {
+    for func in prog.functions.iter() {
         env.insert(func.name.clone(), func.typ(uf.token()));
     }
 
-    for func in functions.iter_mut() {
-        infer_function(func, env.clone(), &mut uf);
+    for func in prog.functions.iter_mut() {
+        infer_function(func, env.clone(), &mut uf, &prog.enums);
     }
 
     let mut patcher = Patcher {
         uf,
         pools: HashMap::new(),
-        names: functions.len(),
+        names: prog.functions.len(),
     };
 
-    for func in functions {
+    for func in &mut prog.functions {
         patch_function(func, &mut patcher);
     }
 }
@@ -142,6 +142,12 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
         Expr::Enum { argument, .. } => {
             patch_expr(argument.as_mut(), patcher);
         }
+        Expr::Match { head, cases } => {
+            patch_expr(head.as_mut(), patcher);
+            for case in cases {
+                patch_expr(&mut case.body, patcher);
+            }
+        }
     }
 }
 
@@ -153,15 +159,25 @@ fn patch_function(to_patch: &mut Function, patcher: &mut Patcher) {
     patch_expr(&mut to_patch.body, patcher);
 }
 
-fn infer_function(to_infer: &mut Function, mut env: HashMap<Identifier, Type>, uf: &mut UnionFind) {
+fn infer_function(
+    to_infer: &mut Function,
+    mut env: HashMap<Identifier, Type>,
+    uf: &mut UnionFind,
+    enums: &collections::HashMap<Identifier, Enum>,
+) {
     for arg in to_infer.arguments.iter().cloned() {
         env.insert(arg.name, arg.typ);
     }
-    let body_typ = infer_expr(&mut to_infer.body, env, uf);
+    let body_typ = infer_expr(&mut to_infer.body, env, uf, enums);
     union_type(&body_typ, &to_infer.result, uf);
 }
 
-fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut UnionFind) -> Type {
+fn infer_expr(
+    to_infer: &mut Expr,
+    env: HashMap<Identifier, Type>,
+    uf: &mut UnionFind,
+    enums: &collections::HashMap<Identifier, Enum>,
+) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
         Expr::Variable { name, typ } => {
@@ -184,7 +200,7 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             };
 
             for (arg, env_arg) in arguments.iter_mut().zip(env_args.iter()) {
-                let ty = infer_expr(arg, env.clone(), uf);
+                let ty = infer_expr(arg, env.clone(), uf, enums);
                 union_type(&ty, env_arg, uf);
             }
 
@@ -206,7 +222,7 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             for arg in arguments.iter().chain(captures.iter()) {
                 inner.insert(arg.name.clone(), arg.typ.clone());
             }
-            let inferred_result = infer_expr(body.as_mut(), inner, uf);
+            let inferred_result = infer_expr(body.as_mut(), inner, uf, enums);
             union_type(&result, &inferred_result, uf);
 
             let arg_types = arguments.iter().map(|arg| arg.typ.clone()).collect();
@@ -216,12 +232,12 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
         Expr::Tuple(elems) => {
             let typs = elems
                 .iter_mut()
-                .map(|elem| infer_expr(elem, env.clone(), uf))
+                .map(|elem| infer_expr(elem, env.clone(), uf, enums))
                 .collect();
             Type::Tuple(typs)
         }
         Expr::TupleAccess(tuple, field) => {
-            let tuple_typ = infer_expr(tuple.as_mut(), env, uf);
+            let tuple_typ = infer_expr(tuple.as_mut(), env, uf, enums);
 
             if let Type::Tuple(elems) = tuple_typ {
                 elems[*field].clone()
@@ -230,11 +246,33 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             }
         }
         Expr::Enum { typ, tag, argument } => {
-            let arg_typ = infer_expr(argument.as_mut(), env, uf);
+            let arg_typ = infer_expr(argument.as_mut(), env, uf, enums);
 
             // TODO: check type of arg against enum def
 
             Type::Constructor(typ.clone())
+        }
+        Expr::Match { head, cases } => {
+            let head_typ = infer_expr(head.as_mut(), env.clone(), uf, enums);
+            // TODO: check head type against the patterns being matched
+
+            let Type::Constructor(enum_name) = head_typ else {
+                panic!()
+            };
+            let enum_def = &enums[&enum_name];
+            let case_typs: Vec<Type> = cases
+                .iter_mut()
+                .map(|case| {
+                    let mut inner = env.clone();
+                    let typ = enum_def.variant_type(&case.variant);
+                    inner.insert(case.binding.clone(), typ.clone());
+                    infer_expr(&mut case.body, inner, uf, enums)
+                })
+                .collect();
+            for window in case_typs.windows(2) {
+                union_type(&window[0], &window[1], uf);
+            }
+            case_typs[0].clone()
         }
     }
 }

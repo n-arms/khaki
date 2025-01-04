@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Argument, Expr, Function, Identifier, Program, Type};
+use ir::parsed::{Argument, Expr, Function, Identifier, MatchCase, Program, Type};
 
 #[derive(Clone, Default)]
 pub struct Env {
@@ -120,6 +120,19 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
             tag,
             argument: Box::new(expr(*argument, env, bank)),
         },
+        Expr::Match { head, cases } => {
+            let cases = cases
+                .into_iter()
+                .map(|case| MatchCase {
+                    body: expr(case.body, env.clone(), bank),
+                    ..case
+                })
+                .collect();
+            Expr::Match {
+                cases,
+                head: Box::new(expr(*head, env, bank)),
+            }
+        }
     }
 }
 
@@ -193,6 +206,16 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
             typ,
             tag,
             argument: Box::new(replace_expr(*argument, generics)),
+        },
+        Expr::Match { head, cases } => Expr::Match {
+            cases: cases
+                .into_iter()
+                .map(|case| MatchCase {
+                    body: replace_expr(case.body, generics.clone()),
+                    ..case
+                })
+                .collect(),
+            head: Box::new(replace_expr(*head, generics)),
         },
     }
 }

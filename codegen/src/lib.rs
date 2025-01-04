@@ -164,6 +164,9 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
                 expr(&argument, env)
             )
         }
+        Expr::Match { head, cases } => {
+            todo!()
+        }
     }
 }
 
