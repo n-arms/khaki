@@ -27,6 +27,7 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
                 union_type(e1, e2, uf);
             }
         }
+        (Constructor(name1), Constructor(name2)) if name1 == name2 => {}
         _ => panic!(),
     }
 }

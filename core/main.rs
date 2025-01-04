@@ -53,8 +53,8 @@ fn parse_error(text: &str, error: Simple<char>) {
 fn codegen_program(program: &str) {
     let parsed = parse_program(&program).unwrap();
     let mut flat = flatten::program(parsed);
-    lambda_set::program(&mut flat);
-    for func in &flat {
+    lambda_set::program(&mut flat.functions);
+    for func in &flat.functions {
         println!("{:?}", func);
     }
     let gen = codegen::program(&flat);
@@ -111,5 +111,17 @@ mod test {
             fn main() -> <|Int, Int|> = swap[Int, Int](<|3, 4|>)
         "#,
         );
+    }
+
+    #[test]
+    fn enum_def() {
+        codegen_program(
+            r#"
+            enum Result {
+                ok(Int), err(Int)
+            }
+            fn main() -> Result = Result::ok(5)
+        "#,
+        )
     }
 }

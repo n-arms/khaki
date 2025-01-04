@@ -3,12 +3,9 @@ macro_rules! parser {
         impl Parser<char, $t, Error = Simple<char>> + Clone
     };
 }
-
-use std::collections::HashMap;
-
 use chumsky::{
     prelude::Simple,
-    primitive::{end, just},
+    primitive::{end, filter, just},
     recursive,
     text::{ident, int, keyword, whitespace},
     Parser,
@@ -19,8 +16,30 @@ fn pad<T>(inner: parser!(T)) -> parser!(T) {
     whitespace().ignore_then(inner).then_ignore(whitespace())
 }
 
+fn id_char() -> parser!(char) {
+    filter(|char: &char| char.is_ascii_alphanumeric() || *char == '_')
+}
+
 fn identifier() -> parser!(Identifier) {
-    pad(ident()).map(|name| Identifier { name })
+    pad(filter(char::is_ascii_lowercase)
+        .then(id_char().repeated())
+        .map(|(prefix, mut name)| {
+            name.insert(0, prefix);
+            Identifier {
+                name: name.into_iter().collect(),
+            }
+        }))
+}
+
+fn upper_identifier() -> parser!(Identifier) {
+    pad(filter(char::is_ascii_uppercase)
+        .then(id_char().repeated())
+        .map(|(prefix, mut name)| {
+            name.insert(0, prefix);
+            Identifier {
+                name: name.into_iter().collect(),
+            }
+        }))
 }
 
 fn comma_list<T>(element: parser!(T)) -> parser!(Vec<T>) {
@@ -41,6 +60,7 @@ fn typ() -> parser!(Type) {
     recursive::recursive(|typ| {
         let int = keyword("Int").map(|_| Type::Integer);
         let var = identifier().map(|name| Type::Variable(name));
+        let cons = upper_identifier().map(|name| Type::Constructor(name));
         let func = just('(')
             .ignore_then(comma_list(typ.clone()))
             .then_ignore(just(')'))
@@ -55,8 +75,22 @@ fn typ() -> parser!(Type) {
             .then_ignore(just('|'))
             .then_ignore(just('>'))
             .map(|elems| Type::Tuple(elems));
-        pad(func.or(int).or(var).or(tuple))
+        pad(func.or(int).or(var).or(tuple).or(cons))
     })
+}
+
+fn enum_def() -> parser!(Enum) {
+    pad(keyword("enum")
+        .ignore_then(upper_identifier())
+        .then_ignore(just('{'))
+        .then(comma_list(
+            identifier()
+                .then_ignore(just('('))
+                .then(typ())
+                .then_ignore(just(')')),
+        ))
+        .then_ignore(just('}')))
+    .map(|(name, cases)| Enum { name, cases })
 }
 
 fn argument() -> parser!(Argument) {
@@ -113,9 +147,22 @@ fn expr() -> parser!(Expr) {
             .then_ignore(just('|'))
             .then_ignore(just('>'))
             .map(|elems| Expr::Tuple(elems));
+        let variant = upper_identifier()
+            .then_ignore(just(':'))
+            .then_ignore(just(':'))
+            .then(identifier())
+            .then_ignore(just('('))
+            .then(expr.clone())
+            .then_ignore(just(')'))
+            .map(|((typ, tag), argument)| Expr::Enum {
+                typ,
+                tag,
+                argument: Box::new(argument),
+            });
         let access = pad(just('.').ignore_then(whitespace()).ignore_then(int(10)));
         pad(integer
             .or(call)
+            .or(variant)
             .or(variable)
             .or(function)
             .or(tuple)
@@ -156,12 +203,13 @@ fn function() -> parser!(Function) {
 }
 
 fn program() -> parser!(Program) {
-    function()
+    enum_def()
         .repeated()
+        .then(function().repeated())
         .then_ignore(end())
-        .map(|functions| Program {
-            functions,
-            enums: HashMap::default(),
+        .map(|(enum_defs, functions)| {
+            let enums = enum_defs.into_iter().map(|e| (e.name.clone(), e)).collect();
+            Program { functions, enums }
         })
 }
 
