@@ -1,128 +1,194 @@
-macro_rules! generate {
-    ($gen:expr, $format:literal $(, $arg:expr)*) => {
-        $gen.push_str(&format!($format $(, $arg)*));
-    };
+pub struct Program {
+    defs: Vec<Definition>,
+    functions: Vec<Function>,
 }
 
-use std::collections::HashMap;
-
-pub(crate) use generate;
-use ir::parsed::{Identifier, Type};
-
-use crate::typ_to_string;
-
-#[derive(Default)]
-pub struct Generator {
-    text: String,
-    line: String,
-    indent: usize,
+pub enum Kind {
+    Enum,
+    Union,
+    Struct,
 }
 
-impl Generator {
-    pub fn push(&mut self, char: char) {
-        self.line.push(char);
-    }
-
-    pub fn push_str(&mut self, str: &str) {
-        self.line.push_str(str);
-    }
-
-    pub fn newline(&mut self) {
-        for _ in 0..self.indent {
-            self.text.push(' ');
-        }
-        self.text.push_str(&self.line);
-        self.text.push('\n');
-        self.line.clear();
-    }
-
-    pub fn inc(&mut self) {
-        self.indent += 1;
-    }
-
-    pub fn dec(&mut self) {
-        self.indent -= 1;
-    }
-
-    pub fn scope<T>(&mut self, inner: impl FnOnce(&mut Self) -> T) -> T {
-        self.inc();
-        let result = inner(self);
-        self.dec();
-        result
-    }
-
-    pub fn comma_list<T>(
-        &mut self,
-        list: impl IntoIterator<Item = T>,
-        mut func: impl FnMut(&mut Self, T),
-    ) {
-        self.scope(|mut gen| {
-            let mut first = true;
-            for elem in list {
-                if first {
-                    first = false;
-                } else {
-                    gen.push_str(", ");
-                }
-                func(&mut gen, elem);
-            }
-        });
-    }
-
-    pub fn generate(mut self) -> String {
-        if !self.line.is_empty() {
-            self.newline();
-        }
-        self.text
-    }
+pub struct Definition {
+    kind: Kind,
+    name: String,
+    fields: Vec<String>,
 }
 
-#[derive(Default)]
-pub struct Env {
-    pub preamble: Generator,
-    pub main: Generator,
-    names: usize,
-    tuples: HashMap<Vec<Type>, Identifier>,
+pub struct Function {
+    result: String,
+    name: String,
+    arguments: Vec<(String, String)>,
+    body: Option<Block>,
 }
 
-impl Env {
-    pub fn fresh_name(&mut self, prefix: &str) -> String {
-        let name = self.names;
-        self.names += 1;
-        format!("{prefix}_{name}")
+pub struct Block {
+    statements: Vec<Statement>,
+}
+
+pub enum Statement {
+    Line(String),
+    Block(Block),
+}
+
+impl Program {
+    pub fn definition(&mut self, kind: Kind, name: String, fields: Vec<String>) {
+        self.defs.push(Definition { kind, name, fields });
+    }
+
+    pub fn function(&mut self, function: Function) {
+        self.functions.push(function);
     }
 
     pub fn generate(self) -> String {
-        let mut text = String::from("//=== preamble ===\n");
-        text.push_str(&self.preamble.generate());
-        text.push_str("//=== main ===\n");
-        text.push_str(&self.main.generate());
-        text
-    }
+        for def in self.defs {
+            def.generate();
+        }
 
-    pub fn tuple_name(&mut self, tuple: &[Type]) -> Identifier {
-        if let Some(id) = self.tuples.get(tuple) {
-            id.clone()
-        } else {
-            let name = Identifier::from(self.fresh_name("tuple"));
-            self.tuples.insert(tuple.to_vec(), name.clone());
-
-            generate_tuple_struct(tuple, name.clone(), self);
-
-            name
+        for func in self.functions {
+            func.generate();
         }
     }
 }
 
-fn generate_tuple_struct(tuple: &[Type], name: Identifier, env: &mut Env) {
-    generate!(&mut env.preamble, "struct {} {{", name.name);
-    env.preamble.newline();
-    env.preamble.inc();
-    for (i, typ) in tuple.iter().enumerate() {
-        let typ_name = typ_to_string(typ, env);
-        generate!(&mut env.preamble, "{} field{};", typ_name, i);
-        env.preamble.newline();
+impl Definition {
+    pub fn generate(self) -> String {
+        let mut output = String::from(self.kind.keyword());
+        output.push(' ');
+        output.push_str(&self.name);
+        output.push_str(" {\n");
+        for field in self.fields {
+            output.push_str(&ind(1));
+            output.push_str(&field);
+            output.push_str(self.kind.delimeter());
+            output.push('\n')
+        }
+        output.push_str("}\n");
+        output
     }
-    env.preamble.dec();
-    generate!(&mut env.preamble, "}};");
+}
+
+impl Function {
+    pub fn forward(result: String, name: String, arguments: Vec<(String, String)>) -> Self {
+        Self {
+            result,
+            name,
+            arguments,
+            body: None,
+        }
+    }
+
+    pub fn function(
+        result: String,
+        name: String,
+        arguments: Vec<(String, String)>,
+        body: Block,
+    ) -> Self {
+        Self {
+            result,
+            name,
+            arguments,
+            body: Some(body),
+        }
+    }
+
+    pub fn generate(self) -> String {
+        let mut output = self.result;
+        output.push(' ');
+        output.push_str(&self.name);
+        output.push('(');
+        commas_with(self.arguments, |(typ, name)| typ + " " + &name);
+        output.push(')');
+        if let Some(body) = self.body {
+            output.push(' ');
+            body.generate(1);
+        } else {
+            output.push_str(";\n");
+        }
+        output
+    }
+}
+
+impl Kind {
+    pub fn keyword(&self) -> &'static str {
+        match self {
+            Kind::Enum => "enum",
+            Kind::Union => "union",
+            Kind::Struct => "struct",
+        }
+    }
+
+    pub fn delimeter(&self) -> &'static str {
+        match self {
+            Kind::Enum => ",",
+            Kind::Union | Kind::Struct => ";",
+        }
+    }
+}
+
+impl Block {
+    pub fn line(&mut self, string: String) {
+        self.statements.push(Statement::Line(string));
+    }
+
+    pub fn block(&mut self, block: Block) {
+        self.statements.push(Statement::Block(block));
+    }
+
+    pub fn generate(self, mut indent: usize) -> String {
+        let mut output = String::from("{\n");
+        indent += 1;
+        for stmt in self.statements {
+            output.push_str(&ind(indent));
+            match stmt {
+                Statement::Line(line) => {
+                    output.push_str(&line);
+                    output.push(';');
+                }
+                Statement::Block(block) => {
+                    block.generate(indent + 1);
+                }
+            }
+            output.push_str(";\n");
+        }
+        output.push('}');
+        output
+    }
+}
+
+impl From<String> for Statement {
+    fn from(value: String) -> Self {
+        Self::Line(value)
+    }
+}
+
+pub fn ind(indent: usize) -> String {
+    let mut output = String::new();
+    for _ in 0..indent * 2 {
+        output.push(' ');
+    }
+    output
+}
+
+pub fn commas<S: AsRef<str>>(iter: impl IntoIterator<Item = S>) -> String {
+    let mut output = String::new();
+    let mut first = true;
+
+    for elem in iter.into_iter() {
+        if first {
+            first = false;
+        } else {
+            output.push_str(", ");
+        }
+        output.push_str(elem.as_ref());
+    }
+
+    output
+}
+
+pub fn commas_with<S: AsRef<str>, I>(
+    iter: impl IntoIterator<Item = I>,
+    mapper: impl FnMut(I) -> S,
+) -> String {
+    commas(iter.into_iter().map(mapper))
 }
