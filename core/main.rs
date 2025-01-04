@@ -19,8 +19,8 @@ fn main() {
                 }
             };
             let mut flat = flatten::program(parsed);
-            lambda_set::program(&mut flat);
-            for func in &flat {
+            lambda_set::program(&mut flat.functions);
+            for func in &flat.functions {
                 println!("{:?}", func);
             }
             let gen = codegen::program(&flat);

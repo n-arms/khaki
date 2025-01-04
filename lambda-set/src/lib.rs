@@ -89,6 +89,7 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
                 patch_type(elem, patcher);
             }
         }
+        Type::Constructor(_) => {}
     }
 }
 
@@ -136,6 +137,9 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
         }
         Expr::TupleAccess(tuple, _) => {
             patch_expr(tuple.as_mut(), patcher);
+        }
+        Expr::Enum { argument, .. } => {
+            patch_expr(argument.as_mut(), patcher);
         }
     }
 }
@@ -223,6 +227,13 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             } else {
                 unreachable!()
             }
+        }
+        Expr::Enum { typ, tag, argument } => {
+            let arg_typ = infer_expr(argument.as_mut(), env, uf);
+
+            // TODO: check type of arg against enum def
+
+            Type::Constructor(typ.clone())
         }
     }
 }

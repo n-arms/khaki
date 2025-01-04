@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Argument, Expr, Function, Identifier, Type};
+use ir::parsed::{Argument, Expr, Function, Identifier, Program, Type};
 
 #[derive(Clone, Default)]
 pub struct Env {
@@ -19,22 +19,26 @@ impl Env {
     }
 }
 
-pub fn program(functions: Vec<Function>) -> Vec<Function> {
+pub fn program(prog: Program) -> Program {
     let mut bank = Vec::new();
     let env = Env {
-        functions: functions
+        functions: prog
+            .functions
             .iter()
             .map(|func| (func.name.clone(), func.clone()))
             .collect(),
         ..Default::default()
     };
-    for func in functions {
+    for func in prog.functions {
         if func.generics.is_empty() {
             let name = func.name.clone();
             function(func, name, HashMap::new(), env.clone(), &mut bank);
         }
     }
-    bank
+    Program {
+        functions: bank,
+        ..prog
+    }
 }
 
 fn function(
@@ -111,6 +115,11 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(expr(*tuple, env, bank)), field)
         }
+        Expr::Enum { typ, tag, argument } => Expr::Enum {
+            typ,
+            tag,
+            argument: Box::new(expr(*argument, env, bank)),
+        },
     }
 }
 
@@ -180,6 +189,11 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(replace_expr(*tuple, generics)), field)
         }
+        Expr::Enum { typ, tag, argument } => Expr::Enum {
+            typ,
+            tag,
+            argument: Box::new(replace_expr(*argument, generics)),
+        },
     }
 }
 
@@ -207,5 +221,6 @@ fn replace_type(typ: Type, generics: HashMap<Identifier, Type>) -> Type {
                 .map(|elem| replace_type(elem, generics.clone()))
                 .collect(),
         ),
+        typ @ Type::Constructor(_) => typ,
     }
 }

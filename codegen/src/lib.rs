@@ -1,18 +1,18 @@
 use generator::{generate, Env, Generator};
-use ir::parsed::{Expr, Function, Type};
+use ir::parsed::{Expr, Function, Program, Type};
 
 mod generator;
 
-pub fn program(functions: &[Function]) -> String {
+pub fn program(prog: &Program) -> String {
     let mut env = Env::default();
 
     preamble(&mut env);
 
-    for func in functions {
+    for func in &prog.functions {
         forward_function(func, &mut env);
     }
 
-    for func in functions {
+    for func in &prog.functions {
         function(func, &mut env);
     }
 
@@ -117,6 +117,16 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
         Expr::TupleAccess(tuple, field) => {
             format!("({}).field{}", expr(&tuple, env), field)
         }
+        Expr::Enum { typ, tag, argument } => {
+            format!(
+                "(struct {}) {{ {}_{}, {{ .{} = {} }} }}",
+                typ.name,
+                typ.name,
+                tag.name,
+                tag.name,
+                expr(&argument, env)
+            )
+        }
     }
 }
 
@@ -140,5 +150,6 @@ fn typ_to_string(typ: &Type, env: &mut Env) -> String {
             let name = env.tuple_name(elems);
             format!("struct {}", name.name)
         }
+        Type::Constructor(name) => format!("struct {}", name.name),
     }
 }

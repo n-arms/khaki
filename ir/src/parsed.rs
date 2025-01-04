@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::RefCell, hash, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, hash, rc::Rc};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
@@ -27,6 +27,12 @@ impl From<String> for Identifier {
 }
 
 #[derive(Clone)]
+pub struct Program {
+    pub functions: Vec<Function>,
+    pub enums: HashMap<Identifier, Enum>,
+}
+
+#[derive(Clone)]
 pub struct Function {
     pub name: Identifier,
     pub arguments: Vec<Argument>,
@@ -42,6 +48,23 @@ impl Function {
             Box::new(self.result.clone()),
             LambdaSet::one(self.name.clone(), token),
         )
+    }
+}
+
+#[derive(Clone)]
+pub struct Enum {
+    pub name: Identifier,
+    pub cases: Vec<(Identifier, Type)>,
+}
+
+impl Enum {
+    pub fn variant_type(&self, variant: &Identifier) -> &Type {
+        for (name, typ) in &self.cases {
+            if name == variant {
+                return typ;
+            }
+        }
+        unreachable!()
     }
 }
 
@@ -74,6 +97,11 @@ pub enum Expr {
     },
     Tuple(Vec<Expr>),
     TupleAccess(Box<Expr>, usize),
+    Enum {
+        typ: Identifier,
+        tag: Identifier,
+        argument: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -96,6 +124,7 @@ impl Expr {
                     unreachable!()
                 }
             }
+            Expr::Enum { typ, tag, argument } => Type::Constructor(typ.clone()),
         }
     }
 }
@@ -106,6 +135,7 @@ pub enum Type {
     Variable(Identifier),
     Function(Vec<Type>, Box<Type>, LambdaSet),
     Tuple(Vec<Type>),
+    Constructor(Identifier),
 }
 
 #[derive(Clone)]
@@ -268,6 +298,7 @@ impl fmt::Debug for Type {
                 comma_list(f, elems)?;
                 write!(f, "|>")
             }
+            Type::Constructor(name) => write!(f, "{:?}", name),
         }
     }
 }
@@ -319,6 +350,9 @@ impl fmt::Debug for Expr {
                 write!(f, "|>")
             }
             Expr::TupleAccess(tuple, field) => write!(f, "{:?}.{}", tuple.as_ref(), field),
+            Expr::Enum { typ, tag, argument } => {
+                write!(f, "{:?}::{:?}({:?})", typ, tag, argument)
+            }
         }
     }
 }

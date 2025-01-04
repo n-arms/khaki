@@ -4,6 +4,8 @@ macro_rules! parser {
     };
 }
 
+use std::collections::HashMap;
+
 use chumsky::{
     prelude::Simple,
     primitive::{end, just},
@@ -153,11 +155,17 @@ fn function() -> parser!(Function) {
         }))
 }
 
-fn program() -> parser!(Vec<Function>) {
-    function().repeated().then_ignore(end())
+fn program() -> parser!(Program) {
+    function()
+        .repeated()
+        .then_ignore(end())
+        .map(|functions| Program {
+            functions,
+            enums: HashMap::default(),
+        })
 }
 
-pub fn parse_program(text: &str) -> Result<Vec<Function>, Vec<Simple<char>>> {
+pub fn parse_program(text: &str) -> Result<Program, Vec<Simple<char>>> {
     program().parse(text)
 }
 pub fn parse_type(text: &str) -> Result<Type, Vec<Simple<char>>> {
