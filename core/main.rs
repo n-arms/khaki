@@ -124,4 +124,20 @@ mod test {
         "#,
         )
     }
+
+    #[test]
+    fn match_enum() {
+        codegen_program(
+            r#"
+            enum Result {
+                ok(Int), err(Int)
+            }
+            fn decode(r: Result) -> <|Int, Int|> = match r {
+                ok(o) => <|o, 0|>,
+                err(e) => <|0, e|>
+            }
+            fn main() -> <|Int, Int|> = decode(Result::ok(3))
+        "#,
+        )
+    }
 }

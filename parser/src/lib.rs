@@ -159,8 +159,32 @@ fn expr() -> parser!(Expr) {
                 tag,
                 argument: Box::new(argument),
             });
+        let match_ = keyword("match")
+            .ignore_then(expr.clone())
+            .then_ignore(just('{'))
+            .then(comma_list(
+                identifier()
+                    .then_ignore(just('('))
+                    .then(identifier())
+                    .then_ignore(just(')'))
+                    .then_ignore(whitespace())
+                    .then_ignore(just('='))
+                    .then_ignore(just('>'))
+                    .then(expr.clone())
+                    .map(|((variant, binding), body)| MatchCase {
+                        variant,
+                        binding,
+                        body,
+                    }),
+            ))
+            .then_ignore(just('}'))
+            .map(|(head, cases)| Expr::Match {
+                head: Box::new(head),
+                cases,
+            });
         let access = pad(just('.').ignore_then(whitespace()).ignore_then(int(10)));
         pad(integer
+            .or(match_)
             .or(call)
             .or(variant)
             .or(variable)
