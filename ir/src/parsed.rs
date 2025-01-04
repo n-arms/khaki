@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, hash, rc::Rc};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
@@ -75,11 +75,29 @@ pub enum Expr {
     Tuple(Vec<Expr>),
 }
 
-#[derive(Clone)]
+impl Expr {
+    pub fn typ(&self) -> Type {
+        match self {
+            Expr::Integer(_) => Type::Integer,
+            Expr::Variable { typ, .. } => typ.clone().unwrap(),
+            Expr::FunctionCall {
+                function,
+                set,
+                generics,
+                arguments,
+            } => todo!(),
+            Expr::Function { result, .. } => result.clone(),
+            Expr::Tuple(elems) => Type::Tuple(elems.iter().map(|e| e.typ()).collect()),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     Integer,
     Variable(Identifier),
     Function(Vec<Type>, Box<Type>, LambdaSet),
+    Tuple(Vec<Type>),
 }
 
 #[derive(Clone)]
@@ -87,6 +105,32 @@ pub struct LambdaSet {
     pub pool: Rc<RefCell<Vec<Identifier>>>,
     pub token: usize,
 }
+
+impl PartialEq for LambdaSet {
+    fn eq(&self, other: &Self) -> bool {
+        self.pool.as_ptr() == other.pool.as_ptr()
+    }
+}
+
+impl PartialOrd for LambdaSet {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for LambdaSet {}
+impl Ord for LambdaSet {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.pool.as_ptr().cmp(&other.pool.as_ptr())
+    }
+}
+
+impl hash::Hash for LambdaSet {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.pool.as_ptr().hash(state);
+    }
+}
+
 impl LambdaSet {
     pub fn one(lambda: Identifier, token: usize) -> LambdaSet {
         LambdaSet {
@@ -211,6 +255,11 @@ impl fmt::Debug for Type {
                 write!(f, " - {:?} -> {:?}", set.pool.borrow(), result)
             }
             Type::Variable(name) => write!(f, "{:?}", name),
+            Type::Tuple(elems) => {
+                write!(f, "<|")?;
+                comma_list(f, elems)?;
+                write!(f, "|>")
+            }
         }
     }
 }

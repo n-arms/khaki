@@ -78,6 +78,11 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
             patch_type(result.as_mut(), patcher);
             set.pool = patcher.get_pool(set.token);
         }
+        Type::Tuple(elems) => {
+            for elem in elems {
+                patch_type(elem, patcher);
+            }
+        }
     }
 }
 
@@ -117,6 +122,11 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             patch_expr(body.as_mut(), patcher);
             *name = patcher.name();
             set.pool.as_ref().borrow_mut().push(name.clone());
+        }
+        Expr::Tuple(elems) => {
+            for elem in elems {
+                patch_expr(elem, patcher);
+            }
         }
     }
 }
@@ -188,6 +198,13 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             let arg_types = arguments.iter().map(|arg| arg.typ.clone()).collect();
 
             Type::Function(arg_types, Box::new(inferred_result), set.clone())
+        }
+        Expr::Tuple(elems) => {
+            let typs = elems
+                .iter_mut()
+                .map(|elem| infer_expr(elem, env.clone(), uf))
+                .collect();
+            Type::Tuple(typs)
         }
     }
 }

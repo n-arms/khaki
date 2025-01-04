@@ -4,7 +4,12 @@ macro_rules! generate {
     };
 }
 
+use std::collections::HashMap;
+
 pub(crate) use generate;
+use ir::parsed::{Identifier, Type};
+
+use crate::typ_to_string;
 
 #[derive(Default)]
 pub struct Generator {
@@ -77,6 +82,7 @@ pub struct Env {
     pub preamble: Generator,
     pub main: Generator,
     names: usize,
+    tuples: HashMap<Vec<Type>, Identifier>,
 }
 
 impl Env {
@@ -93,4 +99,28 @@ impl Env {
         text.push_str(&self.main.generate());
         text
     }
+
+    pub fn tuple_name(&mut self, tuple: &[Type]) -> Identifier {
+        if let Some(id) = self.tuples.get(tuple) {
+            id.clone()
+        } else {
+            let name = Identifier::from(self.fresh_name("tuple"));
+            self.tuples.insert(tuple.to_vec(), name.clone());
+
+            generate_tuple_struct(tuple, name.clone(), self);
+
+            name
+        }
+    }
+}
+
+fn generate_tuple_struct(tuple: &[Type], name: Identifier, env: &mut Env) {
+    generate!(&mut env.preamble, "struct {} {{", name.name);
+    env.preamble.inc();
+    for (i, typ) in tuple.iter().enumerate() {
+        let typ_name = typ_to_string(typ, env);
+        generate!(&mut env.preamble, "{} field{};", typ_name, i);
+        env.preamble.newline();
+    }
+    env.preamble.dec();
 }

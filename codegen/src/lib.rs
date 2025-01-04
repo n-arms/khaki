@@ -95,6 +95,25 @@ fn expr(to_gen: &Expr, env: &mut Env) -> String {
             set,
             name,
         } => todo!(),
+        Expr::Tuple(elems) => {
+            let typ = elems.iter().map(|e| e.typ()).collect::<Vec<_>>();
+            let name = env.tuple_name(&typ);
+
+            let mut output = format!("(struct {}) {{", name.name);
+
+            let mut first = true;
+            for elem in elems {
+                if first {
+                    first = false;
+                } else {
+                    output.push_str(",");
+                }
+                output.push(' ');
+                output.push_str(&expr(elem, env));
+            }
+            output.push_str(" }}");
+            output
+        }
     }
 }
 
@@ -113,6 +132,10 @@ fn typ_to_string(typ: &Type, env: &mut Env) -> String {
             generate!(&mut env.preamble, ");");
             env.preamble.newline();
             name
+        }
+        Type::Tuple(elems) => {
+            let name = env.tuple_name(elems);
+            format!("struct {}", name.name)
         }
     }
 }

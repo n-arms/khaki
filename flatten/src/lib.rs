@@ -102,6 +102,12 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
             set,
             name,
         },
+        Expr::Tuple(elems) => Expr::Tuple(
+            elems
+                .into_iter()
+                .map(|elem| expr(elem, env.clone(), bank))
+                .collect(),
+        ),
     }
 }
 
@@ -162,6 +168,12 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 name,
             }
         }
+        Expr::Tuple(elems) => Expr::Tuple(
+            elems
+                .into_iter()
+                .map(|elem| replace_expr(elem, generics.clone()))
+                .collect(),
+        ),
     }
 }
 
@@ -182,6 +194,12 @@ fn replace_type(typ: Type, generics: HashMap<Identifier, Type>) -> Type {
                 .collect(),
             Box::new(replace_type(*function, generics)),
             set,
+        ),
+        Type::Tuple(elems) => Type::Tuple(
+            elems
+                .into_iter()
+                .map(|elem| replace_type(elem, generics.clone()))
+                .collect(),
         ),
     }
 }
