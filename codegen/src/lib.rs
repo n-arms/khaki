@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use generator::{self as gen, Kind};
-use ir::parsed::{Enum, Expr, Function, Program, Type};
+use ir::parsed::{Enum, Expr, Function, Identifier, Program, Type};
 
 mod generator;
 
@@ -9,6 +9,7 @@ struct Env {
     pub prog: gen::Program,
     names: usize,
     tuples: HashMap<Vec<Type>, String>,
+    enums: HashMap<Identifier, Enum>,
 }
 
 impl Env {
@@ -43,6 +44,7 @@ fn generate_program(prog: &Program) -> gen::Program {
         prog: builder,
         names: 0,
         tuples: HashMap::new(),
+        enums: prog.enums.clone(),
     };
     for def in prog.enums.values() {
         enum_definition(def, &mut env);
@@ -56,6 +58,8 @@ fn generate_program(prog: &Program) -> gen::Program {
     for func in &prog.functions {
         function(func, &mut env);
     }
+
+    println!("{:#?}", env.prog);
 
     env.prog
 }
@@ -93,8 +97,8 @@ fn enum_definition(def: &Enum, env: &mut Env) {
         Kind::Struct,
         def.name.name.clone(),
         vec![
-            format!("{}_tag tag", def.name.name),
-            format!("{}_value value", def.name.name),
+            format!("enum {}_tag tag", def.name.name),
+            format!("union {}_value value", def.name.name),
         ],
     );
 }
@@ -189,7 +193,38 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
             )
         }
         Expr::Match { head, cases } => {
-            todo!()
+            let Type::Constructor(head_typ) = head.typ() else {
+                unreachable!()
+            };
+            let enum_def = env.enums[&head_typ].clone();
+            let case_typ = cases[0].body.typ();
+            let result = env.fresh_name("var");
+            block.line(format!("{} {result}", typ_to_string(&case_typ, env)));
+
+            let head_name = env.fresh_name("var");
+            let head_expr = expr(head, block, env);
+            block.line(format!("{} {head_name} = {head_expr}", head_typ.name));
+
+            let mut switch = gen::Block::default();
+
+            for case in cases {
+                let mut local = gen::Block::default();
+                let binding_typ = enum_def.variant_type(&case.variant);
+                let binding_typ_name = typ_to_string(binding_typ, env);
+                local.line(format!(
+                    "{binding_typ_name} {} = ({head_name}).value.{}",
+                    case.binding.name, case.variant.name
+                ));
+                let expr_name = expr(&case.body, &mut local, env);
+                local.line(format!("{result} = {expr_name}",));
+                local.line(String::from("break"));
+                switch.block(
+                    format!("case {}_{}: ", head_typ.name, case.variant.name),
+                    local,
+                );
+            }
+            block.block(format!("switch (({head_name}).tag)"), switch);
+            result
         }
     }
 }

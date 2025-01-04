@@ -34,7 +34,7 @@ pub struct Block {
 #[derive(Debug)]
 pub enum Statement {
     Line(String),
-    Block(Block),
+    Block(String, Block),
 }
 
 impl Program {
@@ -46,6 +46,7 @@ impl Program {
         self.functions.push(function);
     }
 
+    #[must_use]
     pub fn generate(self) -> String {
         let mut output = String::new();
         for def in self.defs {
@@ -60,6 +61,7 @@ impl Program {
 }
 
 impl Definition {
+    #[must_use]
     pub fn generate(self) -> String {
         let mut output = String::from(self.kind.keyword());
         output.push(' ');
@@ -100,6 +102,7 @@ impl Function {
         }
     }
 
+    #[must_use]
     pub fn generate(self) -> String {
         let mut output = self.result;
         output.push(' ');
@@ -142,13 +145,15 @@ impl Block {
         self.statements.push(Statement::Line(string));
     }
 
-    pub fn block(&mut self, block: Block) {
-        self.statements.push(Statement::Block(block));
+    pub fn block(&mut self, prefix: String, block: Block) {
+        self.statements.push(Statement::Block(prefix, block));
     }
 
+    #[must_use]
     pub fn generate(self, mut indent: usize) -> String {
         let mut output = String::from("{\n");
         indent += 1;
+        let nonempty = !self.statements.is_empty();
         for stmt in self.statements {
             output.push_str(&ind(indent));
             match stmt {
@@ -156,11 +161,17 @@ impl Block {
                     output.push_str(&line);
                     output.push(';');
                 }
-                Statement::Block(block) => {
-                    block.generate(indent + 1);
+                Statement::Block(prefix, block) => {
+                    output.push_str(&prefix);
+                    output.push(' ');
+                    output.push_str(&block.generate(indent + 1));
                 }
             }
             output.push('\n');
+        }
+        if nonempty {
+            indent -= 1;
+            output.push_str(&ind(indent));
         }
         output.push('}');
         output
@@ -173,6 +184,7 @@ impl From<String> for Statement {
     }
 }
 
+#[must_use]
 pub fn ind(indent: usize) -> String {
     let mut output = String::new();
     for _ in 0..indent * 2 {
@@ -181,6 +193,7 @@ pub fn ind(indent: usize) -> String {
     output
 }
 
+#[must_use]
 pub fn commas<S: AsRef<str>>(iter: impl IntoIterator<Item = S>) -> String {
     let mut output = String::new();
     let mut first = true;
@@ -197,6 +210,7 @@ pub fn commas<S: AsRef<str>>(iter: impl IntoIterator<Item = S>) -> String {
     output
 }
 
+#[must_use]
 pub fn commas_with<S: AsRef<str>, I>(
     iter: impl IntoIterator<Item = I>,
     mapper: impl FnMut(I) -> S,
