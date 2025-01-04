@@ -140,4 +140,27 @@ mod test {
         "#,
         )
     }
+
+    #[test]
+    fn nested_match() {
+        codegen_program(
+            r#"
+            enum A {
+                b(Int), c(Int)
+            }
+            enum D {
+                e(<|Int, Int|>),
+                f(A)
+            }
+            fn decode_a(a: A) -> Int = match a {
+                b(x) => x,
+                c(x) => x
+            }
+            fn decode_d(d: D) -> Int = match d {
+                e(pair) => pair.0,
+                f(a) => decode_a(a)
+            }
+        "#,
+        )
+    }
 }
