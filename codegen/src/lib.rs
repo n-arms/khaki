@@ -203,7 +203,10 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
 
             let head_name = env.fresh_name("var");
             let head_expr = expr(head, block, env);
-            block.line(format!("{} {head_name} = {head_expr}", head_typ.name));
+            block.line(format!(
+                "struct {} {head_name} = {head_expr}",
+                head_typ.name
+            ));
 
             let mut switch = gen::Block::default();
 
