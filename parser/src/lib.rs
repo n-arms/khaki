@@ -37,16 +37,17 @@ fn comma_list<T>(element: parser!(T)) -> parser!(Vec<T>) {
 
 fn typ() -> parser!(Type) {
     recursive::recursive(|typ| {
-        pad(keyword("Int")
-            .map(|_| Type::Integer)
-            .or(identifier().map(|name| Type::Variable(name)))
-            .or(just('(')
-                .ignore_then(comma_list(typ.clone()))
-                .then_ignore(just(')'))
-                .then_ignore(whitespace())
-                .then_ignore(keyword("->"))
-                .then(typ)
-                .map(|(args, result)| Type::Function(args, Box::new(result), LambdaSet::dummy()))))
+        let int = keyword("Int").map(|_| Type::Integer);
+        let var = identifier().map(|name| Type::Variable(name));
+        let func = just('(')
+            .ignore_then(comma_list(typ.clone()))
+            .then_ignore(just(')'))
+            .then_ignore(whitespace())
+            .then_ignore(just('-'))
+            .then_ignore(just('>'))
+            .then(typ)
+            .map(|(args, result)| Type::Function(args, Box::new(result), LambdaSet::dummy()));
+        pad(func.or(int).or(var))
     })
 }
 
@@ -68,14 +69,43 @@ fn expr() -> parser!(Expr) {
             )
             .then_ignore(whitespace())
             .then_ignore(just('('))
-            .then(comma_list(expr).then_ignore(just(')')))
+            .then(comma_list(expr.clone()).then_ignore(just(')')))
             .map(|((function, generics), arguments)| Expr::FunctionCall {
                 function,
                 generics,
                 arguments,
                 set: LambdaSet::dummy(),
             });
-        pad(integer.or(call).or(variable))
+        let function = just('[')
+            .ignore_then(comma_list(argument()))
+            .then_ignore(just(']'))
+            .then_ignore(whitespace())
+            .then_ignore(just('('))
+            .then(comma_list(argument()))
+            .then_ignore(just(')'))
+            .then_ignore(whitespace())
+            .then_ignore(just('-'))
+            .then_ignore(just('>'))
+            .then_ignore(whitespace())
+            .then(typ())
+            .then_ignore(whitespace())
+            .then_ignore(just('='))
+            .then(expr.clone())
+            .map(|(((captures, arguments), result), body)| Expr::Function {
+                captures,
+                arguments,
+                result,
+                body: Box::new(body),
+                set: LambdaSet::dummy(),
+                name: Identifier::dummy(),
+            });
+        let tuple = just('<')
+            .ignore_then(just('|'))
+            .ignore_then(comma_list(expr.clone()))
+            .then_ignore(just('|'))
+            .then_ignore(just('>'))
+            .map(|elems| Expr::Tuple(elems));
+        pad(integer.or(call).or(variable).or(function).or(tuple))
     })
 }
 
@@ -116,4 +146,7 @@ fn program() -> parser!(Vec<Function>) {
 
 pub fn parse_program(text: &str) -> Result<Vec<Function>, Vec<Simple<char>>> {
     program().parse(text)
+}
+pub fn parse_type(text: &str) -> Result<Type, Vec<Simple<char>>> {
+    typ().then_ignore(end()).parse(text)
 }

@@ -6,9 +6,23 @@ pub struct Identifier {
     pub name: String,
 }
 
+impl Identifier {
+    pub fn dummy() -> Self {
+        Self {
+            name: String::from("dummy"),
+        }
+    }
+}
+
 impl<'a> From<&'a str> for Identifier {
     fn from(value: &'a str) -> Self {
         Self { name: value.into() }
+    }
+}
+
+impl From<String> for Identifier {
+    fn from(name: String) -> Self {
+        Self { name }
     }
 }
 
@@ -56,7 +70,9 @@ pub enum Expr {
         result: Type,
         body: Box<Expr>,
         set: LambdaSet,
+        name: Identifier,
     },
+    Tuple(Vec<Expr>),
 }
 
 #[derive(Clone)]
@@ -226,12 +242,24 @@ impl fmt::Debug for Expr {
                 result,
                 set,
                 body,
+                ..
             } => {
                 write!(f, "[")?;
                 comma_list(f, captures)?;
                 write!(f, "](")?;
                 comma_list(f, arguments)?;
-                write!(f, ") -> {:?} = {:?}", result, body)
+                write!(
+                    f,
+                    ") - {:?} -> {:?} = {:?}",
+                    set.pool.borrow(),
+                    result,
+                    body
+                )
+            }
+            Expr::Tuple(elems) => {
+                write!(f, "<|")?;
+                comma_list(f, elems)?;
+                write!(f, "|>")
             }
         }
     }

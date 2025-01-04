@@ -93,9 +93,15 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
             result,
             set,
             body,
-        } => {
-            todo!()
-        }
+            name,
+        } => Expr::Function {
+            captures,
+            arguments,
+            result,
+            body: Box::new(expr(*body, env, bank)),
+            set,
+            name,
+        },
     }
 }
 
@@ -129,6 +135,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
             result,
             body,
             set,
+            name,
         } => {
             let captures = captures
                 .into_iter()
@@ -152,6 +159,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 result,
                 body: Box::new(body),
                 set,
+                name,
             }
         }
     }

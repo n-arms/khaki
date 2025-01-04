@@ -41,6 +41,7 @@ pub fn program(functions: &mut [Function]) {
     let mut patcher = Patcher {
         uf,
         pools: HashMap::new(),
+        names: functions.len(),
     };
 
     for func in functions {
@@ -51,11 +52,18 @@ pub fn program(functions: &mut [Function]) {
 struct Patcher {
     uf: UnionFind,
     pools: HashMap<usize, Rc<RefCell<Vec<Identifier>>>>,
+    names: usize,
 }
 
 impl Patcher {
     pub fn get_pool(&mut self, token: usize) -> Rc<RefCell<Vec<Identifier>>> {
         self.pools.entry(self.uf.root(token)).or_default().clone()
+    }
+
+    pub fn name(&mut self) -> Identifier {
+        let name = self.names;
+        self.names += 1;
+        Identifier::from(format!("Closure_{name}"))
     }
 }
 
@@ -98,6 +106,7 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             result,
             body,
             set,
+            name,
         } => {
             for arg in captures.iter_mut().chain(arguments) {
                 patch_type(&mut arg.typ, patcher);
@@ -106,6 +115,8 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             set.pool = patcher.get_pool(set.token);
             patch_type(result, patcher);
             patch_expr(body.as_mut(), patcher);
+            *name = patcher.name();
+            set.pool.as_ref().borrow_mut().push(name.clone());
         }
     }
 }
@@ -164,6 +175,7 @@ fn infer_expr(to_infer: &mut Expr, env: HashMap<Identifier, Type>, uf: &mut Unio
             result,
             body,
             set,
+            name,
         } => {
             set.token = uf.token();
             let mut inner = env.clone();

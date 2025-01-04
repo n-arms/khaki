@@ -22,3 +22,5 @@ parser = { path = "parser" }
 lambda-set = { path = "lambda-set" }
 flatten = { path = "flatten" }
 codegen = { path = "codegen" }
+ariadne = "0.5.0"
+chumsky = "0.9.3"
