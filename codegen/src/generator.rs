@@ -1,31 +1,37 @@
+#[derive(Default, Debug)]
 pub struct Program {
     defs: Vec<Definition>,
     functions: Vec<Function>,
 }
 
+#[derive(Debug)]
 pub enum Kind {
     Enum,
     Union,
     Struct,
 }
 
+#[derive(Debug)]
 pub struct Definition {
     kind: Kind,
     name: String,
     fields: Vec<String>,
 }
 
+#[derive(Debug)]
 pub struct Function {
     result: String,
     name: String,
     arguments: Vec<(String, String)>,
-    body: Option<Block>,
+    pub body: Option<Block>,
 }
 
+#[derive(Default, Debug)]
 pub struct Block {
     statements: Vec<Statement>,
 }
 
+#[derive(Debug)]
 pub enum Statement {
     Line(String),
     Block(Block),
@@ -65,7 +71,7 @@ impl Definition {
             output.push_str(self.kind.delimeter());
             output.push('\n')
         }
-        output.push_str("}\n");
+        output.push_str("};\n");
         output
     }
 }
@@ -99,11 +105,14 @@ impl Function {
         output.push(' ');
         output.push_str(&self.name);
         output.push('(');
-        commas_with(self.arguments, |(typ, name)| typ + " " + &name);
+        output.push_str(&commas_with(self.arguments, |(typ, name)| {
+            typ + " " + &name
+        }));
         output.push(')');
         if let Some(body) = self.body {
             output.push(' ');
-            body.generate(1);
+            output.push_str(&body.generate(1));
+            output.push('\n');
         } else {
             output.push_str(";\n");
         }
@@ -151,7 +160,7 @@ impl Block {
                     block.generate(indent + 1);
                 }
             }
-            output.push_str(";\n");
+            output.push('\n');
         }
         output.push('}');
         output
