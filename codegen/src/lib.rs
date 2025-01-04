@@ -222,7 +222,7 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
                 local.line(format!("{result} = {expr_name}",));
                 local.line(String::from("break"));
                 switch.block(
-                    format!("case {}_{}: ", head_typ.name, case.variant.name),
+                    format!("case {}_{}:", head_typ.name, case.variant.name),
                     local,
                 );
             }

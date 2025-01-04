@@ -114,7 +114,7 @@ impl Function {
         output.push(')');
         if let Some(body) = self.body {
             output.push(' ');
-            output.push_str(&body.generate(1));
+            output.push_str(&body.generate(0));
             output.push('\n');
         } else {
             output.push_str(";\n");
@@ -153,7 +153,6 @@ impl Block {
     pub fn generate(self, mut indent: usize) -> String {
         let mut output = String::from("{\n");
         indent += 1;
-        let nonempty = !self.statements.is_empty();
         for stmt in self.statements {
             output.push_str(&ind(indent));
             match stmt {
@@ -164,15 +163,13 @@ impl Block {
                 Statement::Block(prefix, block) => {
                     output.push_str(&prefix);
                     output.push(' ');
-                    output.push_str(&block.generate(indent + 1));
+                    output.push_str(&block.generate(indent));
                 }
             }
             output.push('\n');
         }
-        if nonempty {
-            indent -= 1;
-            output.push_str(&ind(indent));
-        }
+        indent -= 1;
+        output.push_str(&ind(indent));
         output.push('}');
         output
     }
