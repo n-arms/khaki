@@ -61,6 +61,7 @@ fn codegen_program(program: &str) {
     println!("{}", gen);
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -159,6 +160,21 @@ mod test {
             fn decode_d(d: D) -> Int = match d {
                 e(pair) => pair.0,
                 f(a) => decode_a(a)
+            }
+        "#,
+        )
+    }
+
+    #[test]
+    fn direct_match() {
+        codegen_program(
+            r#"
+            enum Box {
+                box(Int)
+            }
+
+            fn three() -> Int = match Box::box(3) {
+                box(x) => x
             }
         "#,
         )

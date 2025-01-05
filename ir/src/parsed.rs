@@ -79,12 +79,12 @@ pub enum Expr {
     Integer(i32),
     Variable {
         name: Identifier,
+        generics: Vec<Type>,
         typ: Option<Type>,
     },
     FunctionCall {
-        function: Identifier,
+        function: Box<Expr>,
         set: LambdaSet,
-        generics: Vec<Type>,
         arguments: Vec<Expr>,
     },
     Function {
@@ -120,12 +120,13 @@ impl Expr {
         match self {
             Expr::Integer(_) => Type::Integer,
             Expr::Variable { typ, .. } => typ.clone().unwrap(),
-            Expr::FunctionCall {
-                function,
-                set,
-                generics,
-                arguments,
-            } => todo!(),
+            Expr::FunctionCall { function, .. } => {
+                if let Type::Function(_, res, _) = function.typ() {
+                    *res
+                } else {
+                    unreachable!()
+                }
+            }
             Expr::Function { result, .. } => result.clone(),
             Expr::Tuple(elems) => Type::Tuple(elems.iter().map(|e| e.typ()).collect()),
             Expr::TupleAccess(tuple, field) => {
@@ -135,7 +136,7 @@ impl Expr {
                     unreachable!()
                 }
             }
-            Expr::Enum { typ, tag, argument } => Type::Constructor(typ.clone()),
+            Expr::Enum { typ, .. } => Type::Constructor(typ.clone()),
             Expr::Match { cases, .. } => cases[0].body.typ(),
         }
     }
@@ -319,20 +320,22 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Integer(int) => write!(f, "{}", int),
-            Expr::Variable { name, typ } => write!(f, "{:?}", name),
-            Expr::FunctionCall {
-                function,
-                generics,
-                arguments,
-                set,
-            } => {
-                write!(f, "{:?}", function)?;
-                if !generics.is_empty() {
+            Expr::Variable { name, generics, .. } => {
+                write!(f, "{:?}", name)?;
+                if generics.is_empty() {
+                    Ok(())
+                } else {
                     write!(f, "[")?;
                     comma_list(f, generics)?;
-                    write!(f, "]")?;
+                    write!(f, "]")
                 }
-                write!(f, "(")?;
+            }
+            Expr::FunctionCall {
+                function,
+                arguments,
+                ..
+            } => {
+                write!(f, "{:?}(", function)?;
                 comma_list(f, arguments)?;
                 write!(f, ")")
             }

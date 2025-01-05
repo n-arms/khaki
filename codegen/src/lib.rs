@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 use generator::{self as gen, Kind};
 use ir::parsed::{Enum, Expr, Function, Identifier, Program, Type};
@@ -134,32 +134,11 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
         Expr::FunctionCall {
             function,
             arguments,
-            ..
-        } => {
-            let mut output = format!("{}(", function.name);
-
-            let mut first = true;
-
-            for arg in arguments {
-                if first {
-                    first = false;
-                } else {
-                    output.push_str(", ");
-                }
-                let arg = expr(arg, block, env);
-                output.push_str(&arg);
-            }
-            output.push(')');
-            output
-        }
-        Expr::Function {
-            captures,
-            arguments,
-            result,
-            body,
             set,
-            name,
-        } => todo!(),
+        } => {
+            todo!()
+        }
+        Expr::Function { .. } => unreachable!(),
         Expr::Tuple(elems) => {
             let typ = elems.iter().map(|e| e.typ()).collect::<Vec<_>>();
             let name = env.tuple_name(&typ);
@@ -236,7 +215,7 @@ fn typ_to_string(typ: &Type, env: &mut Env) -> String {
     match typ {
         Type::Integer => String::from("int"),
         Type::Variable(var) => panic!("codegen with unresolved generic {:?}", var),
-        Type::Function(args, result, set) => String::from("void*"),
+        Type::Function(..) => unreachable!(),
         Type::Tuple(elems) => {
             let name = env.tuple_name(elems);
             format!("struct {}", name)

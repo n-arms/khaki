@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Enum, Expr, Function, Identifier, Program, Type};
+use ir::parsed::{Argument, Enum, Expr, Function, Identifier, Program, Type};
 use union_find::UnionFind;
 
 mod union_find;
@@ -49,16 +49,196 @@ pub fn program(prog: &mut Program) {
         uf,
         pools: HashMap::new(),
         names: prog.functions.len(),
+        lambdas: HashMap::new(),
     };
 
     for func in &mut prog.functions {
         patch_function(func, &mut patcher);
+    }
+
+    let eliminator = Eliminator::new(patcher.pools, patcher.lambdas);
+
+    eliminate_program(prog, &eliminator, &mut patcher.uf);
+}
+
+struct Eliminator {
+    pools: HashMap<usize, LambdaStruct>,
+}
+
+impl Eliminator {
+    fn new(
+        pools: HashMap<usize, Rc<RefCell<Vec<Identifier>>>>,
+        lambdas: HashMap<Identifier, Lambda>,
+    ) -> Self {
+        let pools = pools
+            .into_iter()
+            .map(|(pool, ids)| {
+                (
+                    pool,
+                    LambdaStruct {
+                        lambdas: ids.borrow().iter().map(|id| lambdas[id].clone()).collect(),
+                        name: Identifier::from(format!("lambda_{}", pool)),
+                    },
+                )
+            })
+            .collect();
+
+        Self { pools }
+    }
+}
+
+#[derive(Clone)]
+struct Lambda {
+    pub captures: Vec<Argument>,
+    pub arguments: Vec<Argument>,
+    pub result: Type,
+    body: Expr,
+    name: Identifier,
+}
+
+#[derive(Clone)]
+struct LambdaStruct {
+    lambdas: Vec<Lambda>,
+    name: Identifier,
+}
+
+fn eliminate_type(typ: &mut Type, el: &Eliminator, uf: &mut UnionFind) {
+    match typ {
+        Type::Integer => {}
+        Type::Variable(_) => unreachable!(),
+        Type::Function(_, _, set) => {
+            let root = uf.root(set.token);
+            let lambda_struct = el.pools[&root].clone();
+            *typ = Type::Constructor(lambda_struct.name);
+        }
+        Type::Tuple(elems) => {
+            for elem in elems {
+                eliminate_type(elem, el, uf);
+            }
+        }
+        Type::Constructor(_) => {}
+    }
+}
+
+fn eliminate_expr(expr: &mut Expr, el: &Eliminator, uf: &mut UnionFind) {
+    match expr {
+        Expr::Integer(_) => {}
+        Expr::Variable { name, typ, .. } => {
+            if let Some(typ) = typ {
+                eliminate_type(typ, el, uf);
+            }
+        }
+        Expr::FunctionCall {
+            function,
+            set,
+            arguments,
+        } => {
+            todo!()
+        }
+        Expr::Function {
+            captures,
+            arguments,
+            result,
+            body,
+            set,
+            name,
+        } => {
+            for cap in captures.iter_mut() {
+                eliminate_type(&mut cap.typ, el, uf);
+            }
+            for arg in arguments {
+                eliminate_type(&mut arg.typ, el, uf);
+            }
+            eliminate_type(result, el, uf);
+            eliminate_expr(body.as_mut(), el, uf);
+
+            let root = uf.root(set.token);
+            let lambda_struct = el.pools[&root].clone();
+
+            let capture_payload = Expr::Tuple(
+                captures
+                    .iter()
+                    .map(|cap| Expr::Variable {
+                        name: cap.name.clone(),
+                        typ: Some(cap.typ.clone()),
+                        generics: Vec::new(),
+                    })
+                    .collect(),
+            );
+            *expr = Expr::Enum {
+                typ: lambda_struct.name,
+                tag: name.clone(),
+                argument: Box::new(capture_payload),
+            };
+        }
+        Expr::Tuple(elems) => {
+            for elem in elems {
+                eliminate_expr(elem, el, uf);
+            }
+        }
+        Expr::TupleAccess(tuple, _) => {
+            eliminate_expr(tuple.as_mut(), el, uf);
+        }
+        Expr::Enum { typ, tag, argument } => {
+            eliminate_expr(argument.as_mut(), el, uf);
+        }
+        Expr::Match { head, cases } => {
+            eliminate_expr(head.as_mut(), el, uf);
+
+            for case in cases.iter_mut() {
+                eliminate_expr(&mut case.body, el, uf);
+            }
+        }
+    }
+}
+
+fn eliminate_function(function: &mut Function, el: &Eliminator, uf: &mut UnionFind) {
+    for arg in function.arguments.iter_mut() {
+        eliminate_type(&mut arg.typ, el, uf);
+    }
+
+    eliminate_type(&mut function.result, el, uf);
+
+    eliminate_expr(&mut function.body, el, uf);
+}
+
+fn eliminate_enum(enum_def: &mut Enum, el: &Eliminator, uf: &mut UnionFind) {
+    for (_, typ) in enum_def.cases.iter_mut() {
+        eliminate_type(typ, el, uf);
+    }
+}
+
+fn eliminate_program(program: &mut Program, el: &Eliminator, uf: &mut UnionFind) {
+    for (_, def) in program.enums.iter_mut() {
+        eliminate_enum(def, el, uf);
+    }
+
+    for func in program.functions.iter_mut() {
+        eliminate_function(func, el, uf);
+    }
+
+    for lambda_struct in el.pools.values() {
+        let cases = lambda_struct
+            .lambdas
+            .iter()
+            .map(|lambda| {
+                let payload =
+                    Type::Tuple(lambda.captures.iter().map(|arg| arg.typ.clone()).collect());
+                (lambda.name.clone(), payload)
+            })
+            .collect();
+        let def = Enum {
+            name: lambda_struct.name.clone(),
+            cases,
+        };
+        program.enums.insert(def.name.clone(), def);
     }
 }
 
 struct Patcher {
     uf: UnionFind,
     pools: HashMap<usize, Rc<RefCell<Vec<Identifier>>>>,
+    lambdas: HashMap<Identifier, Lambda>,
     names: usize,
 }
 
@@ -97,7 +277,7 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
 fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
     match to_patch {
         Expr::Integer(_) => {}
-        Expr::Variable { name, typ } => {
+        Expr::Variable { name, typ, .. } => {
             if let Some(typ) = typ {
                 patch_type(typ, patcher);
             }
@@ -105,7 +285,6 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
         Expr::FunctionCall {
             function,
             set,
-            generics,
             arguments,
         } => {
             set.pool = patcher.get_pool(set.token);
@@ -121,7 +300,7 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             set,
             name,
         } => {
-            for arg in captures.iter_mut().chain(arguments) {
+            for arg in captures.iter_mut().chain(arguments.iter_mut()) {
                 patch_type(&mut arg.typ, patcher);
             }
 
@@ -130,6 +309,17 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             patch_expr(body.as_mut(), patcher);
             *name = patcher.name();
             set.pool.as_ref().borrow_mut().push(name.clone());
+
+            patcher.lambdas.insert(
+                name.clone(),
+                Lambda {
+                    captures: captures.clone(),
+                    arguments: arguments.clone(),
+                    result: result.clone(),
+                    body: body.as_ref().clone(),
+                    name: name.clone(),
+                },
+            );
         }
         Expr::Tuple(elems) => {
             for elem in elems {
@@ -180,7 +370,7 @@ fn infer_expr(
 ) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
-        Expr::Variable { name, typ } => {
+        Expr::Variable { name, typ, .. } => {
             let env_typ = env[&name].clone();
             if let Some(old_typ) = typ {
                 union_type(old_typ, &env_typ, uf);
@@ -195,7 +385,9 @@ fn infer_expr(
             arguments,
             ..
         } => {
-            let Type::Function(env_args, env_res, env_set) = env[function].clone() else {
+            let Type::Function(env_args, env_res, env_set) =
+                infer_expr(function.as_mut(), env.clone(), uf, enums)
+            else {
                 panic!()
             };
 
