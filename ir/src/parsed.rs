@@ -127,7 +127,16 @@ impl Expr {
                     unreachable!()
                 }
             }
-            Expr::Function { result, .. } => result.clone(),
+            Expr::Function {
+                arguments,
+                result,
+                set,
+                ..
+            } => Type::Function(
+                arguments.iter().map(|arg| arg.typ.clone()).collect(),
+                Box::new(result.clone()),
+                set.clone(),
+            ),
             Expr::Tuple(elems) => Type::Tuple(elems.iter().map(|e| e.typ()).collect()),
             Expr::TupleAccess(tuple, field) => {
                 if let Type::Tuple(elems) = tuple.typ() {

@@ -29,7 +29,7 @@ impl Lower {
                     pool,
                     LambdaStruct {
                         lambdas: ids.iter().map(|id| lambdas[id].clone()).collect(),
-                        name: Identifier::from(format!("lambda_{}", pool)),
+                        name: Identifier::from(format!("closure_{}", pool)),
                     },
                 )
             })
