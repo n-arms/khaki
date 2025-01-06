@@ -201,7 +201,11 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         enums.push(lower_enum(enum_def, lower));
     }
 
-    base::Program { enums, functions }
+    base::Program {
+        enums,
+        functions,
+        structs: Vec::new(),
+    }
 }
 
 fn lower_enum(to_lower: &Enum, lower: &mut Lower) -> base::Enum {
