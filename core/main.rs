@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 use chumsky::error::Simple;
 use codegen::gen_program;
 use parser::parse_program;
