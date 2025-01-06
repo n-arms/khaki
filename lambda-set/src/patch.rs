@@ -8,6 +8,7 @@ pub(crate) struct Patcher {
     pub lambdas: HashMap<Identifier, Lambda>,
     // 1-to-many mapping from the root lambda id to all of the relevant lambdas
     pub pools: HashMap<usize, Vec<Identifier>>,
+    pub functions: HashMap<Identifier, Lambda>,
     names: usize,
 }
 
@@ -21,11 +22,12 @@ pub(crate) struct Lambda {
 }
 
 impl Patcher {
-    pub(crate) fn new(uf: UnionFind) -> Self {
+    pub(crate) fn new(uf: UnionFind, functions: HashMap<Identifier, Lambda>) -> Self {
         Self {
             uf,
             lambdas: HashMap::new(),
             pools: HashMap::new(),
+            functions,
             names: 0,
         }
     }
@@ -47,6 +49,16 @@ impl Patcher {
 
     fn append_lambda(&mut self, lambda: Lambda) {
         self.lambdas.insert(lambda.name.clone(), lambda);
+    }
+
+    fn function_name(&mut self, name: &Identifier, typ: &Type) {
+        if let Some(lambda) = self.functions.get(name) {
+            self.lambdas.insert(name.clone(), lambda.clone());
+            let Type::Function(_, _, set) = typ else {
+                unreachable!()
+            };
+            self.append_pool(set.token, name.clone());
+        }
     }
 }
 
@@ -73,10 +85,11 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
 fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
     match to_patch {
         Expr::Integer(_) => {}
-        Expr::Variable { typ, .. } => {
+        Expr::Variable { name, typ, .. } => {
             if let Some(typ) = typ {
                 patch_type(typ, patcher);
             }
+            patcher.function_name(name, typ.as_ref().unwrap());
         }
         Expr::FunctionCall {
             function,

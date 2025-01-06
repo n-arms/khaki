@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{patch::Lambda, union_find::UnionFind};
-use im::HashMap;
+use im::{HashMap, HashSet};
 use ir::base::{self, Stmt};
 use ir::parsed::{Argument, Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
@@ -14,6 +14,8 @@ pub(crate) struct LambdaStruct {
 pub(crate) struct Lower {
     pools: HashMap<usize, LambdaStruct>,
     tuples: HashMap<Vec<Type>, Identifier>,
+    // list of user defined functions
+    functions: HashSet<Identifier>,
     names: usize,
 }
 
@@ -21,6 +23,7 @@ impl Lower {
     pub(crate) fn new(
         pools: HashMap<usize, Vec<Identifier>>,
         lambdas: HashMap<Identifier, Lambda>,
+        functions: HashSet<Identifier>,
     ) -> Self {
         let pools = pools
             .into_iter()
@@ -39,6 +42,7 @@ impl Lower {
             pools,
             tuples: HashMap::new(),
             names: 0,
+            functions,
         }
     }
 
@@ -61,6 +65,10 @@ impl Lower {
             self.tuples.insert(tuple.to_vec(), name.clone());
             name
         }
+    }
+
+    fn is_function(&self, name: &Identifier) -> bool {
+        self.functions.contains(name)
     }
 }
 
@@ -248,8 +256,32 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
                 value: base::Expr::Integer(*int),
             });
         }
-        Expr::Variable { name, .. } => {
-            return name.clone();
+        Expr::Variable { name, typ, .. } => {
+            if lower.is_function(name) {
+                let Type::Function(_, _, set) = typ.as_ref().unwrap() else {
+                    unreachable!()
+                };
+                let typ = Identifier::from(format!("closure_{}", set.token));
+                let payload_typ = lower.tuple_name(&[]);
+                let payload = base::Expr::Tuple(Vec::new());
+                let payload_var = lower.fresh_name("var");
+                stmts.push(Stmt::Let {
+                    name: payload_var.clone(),
+                    typ: base::Type::Constructor(payload_typ),
+                    value: payload,
+                });
+                stmts.push(Stmt::Let {
+                    name: result.clone(),
+                    typ: base::Type::Constructor(typ.clone()),
+                    value: base::Expr::Enum {
+                        typ,
+                        tag: name.clone(),
+                        argument: payload_var,
+                    },
+                });
+            } else {
+                return name.clone();
+            }
         }
         Expr::FunctionCall {
             function,

@@ -118,8 +118,8 @@ fn infer_expr(
                 unreachable!()
             }
         }
-        Expr::Enum { typ, tag, argument } => {
-            let arg_typ = infer_expr(argument.as_mut(), env, uf, enums);
+        Expr::Enum { typ, argument, .. } => {
+            let _arg_typ = infer_expr(argument.as_mut(), env, uf, enums);
 
             // TODO: check type of arg against enum def
 

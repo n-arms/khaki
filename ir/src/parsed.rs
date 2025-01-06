@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::RefCell, collections::HashMap, hash, rc::Rc};
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
