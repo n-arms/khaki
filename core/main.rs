@@ -104,6 +104,15 @@ mod test {
     }
 
     #[test]
+    fn captures() {
+        codegen_program(
+            r#"
+            fn main(x: Int) -> Int = ([x: Int](y: Int) -> Int = x)(5)
+        "#,
+        )
+    }
+
+    #[test]
     fn tuple_construction() {
         codegen_program(
             r#"
