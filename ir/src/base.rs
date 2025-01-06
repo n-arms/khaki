@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Clone)]
 pub struct Program {
     pub enums: Vec<Enum>,
+    pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
 }
 
@@ -15,6 +16,12 @@ pub struct Function {
     pub typ: Type,
     pub body: Vec<Stmt>,
     pub result: Identifier,
+}
+
+#[derive(Clone)]
+pub struct Struct {
+    pub name: Identifier,
+    pub fields: Vec<Type>,
 }
 
 #[derive(Clone)]
@@ -84,6 +91,9 @@ impl fmt::Debug for Program {
         for enum_def in &self.enums {
             enum_def.fmt(f)?;
         }
+        for struct_def in &self.structs {
+            struct_def.fmt(f)?;
+        }
         for func in &self.functions {
             func.fmt(f)?;
         }
@@ -144,6 +154,14 @@ impl fmt::Debug for Function {
         }
         indent(1, f)?;
         write!(f, "return {:?};\n}}\n", self.result)
+    }
+}
+
+impl fmt::Debug for Struct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "struct {:?} {{", self.name)?;
+        comma_list(f, &self.fields)?;
+        write!(f, "}}\n")
     }
 }
 
