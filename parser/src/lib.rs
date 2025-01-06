@@ -7,7 +7,7 @@ use chumsky::{
     prelude::Simple,
     primitive::{end, filter, just},
     recursive::{self, Recursive},
-    text::{ident, int, keyword, whitespace},
+    text::{int, keyword, whitespace},
     Parser,
 };
 use ir::parsed::*;

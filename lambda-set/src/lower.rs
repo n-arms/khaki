@@ -1,9 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
-
-use crate::{patch::Lambda, union_find::UnionFind};
+use crate::patch::Lambda;
 use im::{HashMap, HashSet};
 use ir::base::{self, Stmt};
-use ir::parsed::{Argument, Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
+use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
 #[derive(Clone)]
 pub(crate) struct LambdaStruct {

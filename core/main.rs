@@ -53,16 +53,16 @@ fn parse_error(text: &str, error: Simple<char>) {
         .unwrap();
 }
 
-fn codegen_program(program: &str) {
-    let parsed = parse_program(&program).unwrap();
-    let mut flat = flatten::program(parsed);
-    let base = lambda_set::program(&mut flat);
-    println!("{:?}", base)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn codegen_program(program: &str) {
+        let parsed = parse_program(&program).unwrap();
+        let mut flat = flatten::program(parsed);
+        let base = lambda_set::program(&mut flat);
+        println!("{:?}", base)
+    }
 
     #[test]
     fn trivial() {
