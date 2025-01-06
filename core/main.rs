@@ -19,12 +19,15 @@ fn main() {
                 }
             };
             let mut flat = flatten::program(parsed);
-            lambda_set::program(&mut flat);
-            for func in &flat.functions {
-                println!("{:?}", func);
-            }
+            println!("flattened program");
+            let base = lambda_set::program(&mut flat);
+            println!("lowered program");
+            println!("{:?}", base);
+            println!("printed program");
+            /*
             let gen = codegen::program(&flat);
             println!("{}", gen);
+            */
             text.clear();
         }
         text.push_str(&line);
@@ -53,14 +56,11 @@ fn parse_error(text: &str, error: Simple<char>) {
 fn codegen_program(program: &str) {
     let parsed = parse_program(&program).unwrap();
     let mut flat = flatten::program(parsed);
-    lambda_set::program(&mut flat);
-    for func in &flat.functions {
-        println!("{:?}", func);
-    }
-    let gen = codegen::program(&flat);
-    println!("{}", gen);
+    let base = lambda_set::program(&mut flat);
+    println!("{:?}", base)
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -90,6 +90,15 @@ mod test {
             fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
             fn const[a, b](x: a) -> (b) -> a = [x: a](y: b) -> a = x
             fn main() -> (Int) -> Int = const[Int, Int](3)
+        "#,
+        )
+    }
+
+    #[test]
+    fn calling_closures() {
+        codegen_program(
+            r#"
+            fn main() -> Int = ([](x: Int) -> Int = x)(5)
         "#,
         )
     }
@@ -159,6 +168,21 @@ mod test {
             fn decode_d(d: D) -> Int = match d {
                 e(pair) => pair.0,
                 f(a) => decode_a(a)
+            }
+        "#,
+        )
+    }
+
+    #[test]
+    fn direct_match() {
+        codegen_program(
+            r#"
+            enum Box {
+                box(Int)
+            }
+
+            fn three() -> Int = match Box::box(3) {
+                box(x) => x
             }
         "#,
         )

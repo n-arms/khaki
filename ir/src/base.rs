@@ -58,10 +58,7 @@ pub enum Stmt {
 #[derive(Clone)]
 pub enum Expr {
     Integer(i32),
-    Variable {
-        name: Identifier,
-        typ: Type,
-    },
+    Variable(Identifier),
     DirectCall {
         function: Identifier,
         arguments: Vec<Identifier>,
@@ -80,6 +77,18 @@ pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Identifier,
     pub body: Vec<Stmt>,
+}
+
+impl fmt::Debug for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for enum_def in &self.enums {
+            enum_def.fmt(f)?;
+        }
+        for func in &self.functions {
+            func.fmt(f)?;
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Debug for Type {
@@ -101,7 +110,7 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Integer(int) => int.fmt(f),
-            Expr::Variable { name, .. } => name.fmt(f),
+            Expr::Variable(name) => name.fmt(f),
             Expr::DirectCall {
                 function,
                 arguments,

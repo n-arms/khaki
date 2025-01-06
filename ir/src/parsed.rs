@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::RefCell, collections::HashMap, hash, rc::Rc};
+use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
@@ -79,12 +79,12 @@ pub enum Expr {
     Integer(i32),
     Variable {
         name: Identifier,
+        generics: Vec<Type>,
         typ: Option<Type>,
     },
     FunctionCall {
-        function: Identifier,
+        function: Box<Expr>,
         set: LambdaSet,
-        generics: Vec<Type>,
         arguments: Vec<Expr>,
     },
     Function {
@@ -93,6 +93,7 @@ pub enum Expr {
         result: Type,
         body: Box<Expr>,
         set: LambdaSet,
+        name: Identifier,
     },
     Tuple(Vec<Expr>),
     TupleAccess(Box<Expr>, usize),
@@ -119,13 +120,23 @@ impl Expr {
         match self {
             Expr::Integer(_) => Type::Integer,
             Expr::Variable { typ, .. } => typ.clone().unwrap(),
-            Expr::FunctionCall {
-                function,
-                set,
-                generics,
+            Expr::FunctionCall { function, .. } => {
+                if let Type::Function(_, res, _) = function.typ() {
+                    *res
+                } else {
+                    unreachable!()
+                }
+            }
+            Expr::Function {
                 arguments,
-            } => todo!(),
-            Expr::Function { result, .. } => result.clone(),
+                result,
+                set,
+                ..
+            } => Type::Function(
+                arguments.iter().map(|arg| arg.typ.clone()).collect(),
+                Box::new(result.clone()),
+                set.clone(),
+            ),
             Expr::Tuple(elems) => Type::Tuple(elems.iter().map(|e| e.typ()).collect()),
             Expr::TupleAccess(tuple, field) => {
                 if let Type::Tuple(elems) = tuple.typ() {
@@ -134,13 +145,13 @@ impl Expr {
                     unreachable!()
                 }
             }
-            Expr::Enum { typ, tag, argument } => Type::Constructor(typ.clone()),
+            Expr::Enum { typ, .. } => Type::Constructor(typ.clone()),
             Expr::Match { cases, .. } => cases[0].body.typ(),
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     Integer,
     Variable(Identifier),
@@ -149,7 +160,7 @@ pub enum Type {
     Constructor(Identifier),
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LambdaSet {
     pub token: usize,
 }
@@ -286,20 +297,22 @@ impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Integer(int) => write!(f, "{}", int),
-            Expr::Variable { name, typ } => write!(f, "{:?}", name),
-            Expr::FunctionCall {
-                function,
-                generics,
-                arguments,
-                set,
-            } => {
-                write!(f, "{:?}", function)?;
-                if !generics.is_empty() {
+            Expr::Variable { name, generics, .. } => {
+                write!(f, "{:?}", name)?;
+                if generics.is_empty() {
+                    Ok(())
+                } else {
                     write!(f, "[")?;
                     comma_list(f, generics)?;
-                    write!(f, "]")?;
+                    write!(f, "]")
                 }
-                write!(f, "(")?;
+            }
+            Expr::FunctionCall {
+                function,
+                arguments,
+                ..
+            } => {
+                write!(f, "{:?}(", function)?;
                 comma_list(f, arguments)?;
                 write!(f, ")")
             }

@@ -69,24 +69,41 @@ fn function(
 fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
     match to_flat {
         int @ Expr::Integer(_) => int,
-        var @ Expr::Variable { .. } => var,
-        Expr::FunctionCall {
-            function: func_name,
+        Expr::Variable {
+            name,
             generics,
-            arguments,
-            set,
+            typ,
         } => {
-            let func = env.functions.get(&func_name).unwrap().clone();
+            if generics.is_empty() {
+                return Expr::Variable {
+                    name,
+                    generics,
+                    typ,
+                };
+            }
+            let func = env.functions.get(&name).unwrap().clone();
             let flat_func = env.fresh_from(func.name.clone());
             let generics = func.generics.iter().cloned().zip(generics).collect();
             function(func, flat_func.clone(), generics, env.clone(), bank);
+
+            Expr::Variable {
+                name: flat_func,
+                generics: Vec::new(),
+                typ,
+            }
+        }
+        Expr::FunctionCall {
+            function,
+            arguments,
+            set,
+        } => {
             let flat_args = arguments
                 .into_iter()
                 .map(|arg| expr(arg, env.clone(), bank))
                 .collect();
+            let flat_func = expr(*function, env, bank);
             Expr::FunctionCall {
-                function: flat_func,
-                generics: Vec::new(),
+                function: Box::new(flat_func),
                 arguments: flat_args,
                 set,
             }
@@ -139,21 +156,24 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
 fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
     match expr {
         int @ Expr::Integer(_) => int,
-        Expr::Variable { name, typ } => Expr::Variable {
+        Expr::Variable {
             name,
-            typ: typ.map(|typ| replace_type(typ, generics)),
-        },
-        Expr::FunctionCall {
-            function,
+            typ,
             generics: call_generics,
-            arguments,
-            set,
-        } => Expr::FunctionCall {
-            function,
+        } => Expr::Variable {
+            name,
             generics: call_generics
                 .into_iter()
                 .map(|generic| replace_type(generic, generics.clone()))
                 .collect(),
+            typ: typ.map(|typ| replace_type(typ, generics)),
+        },
+        Expr::FunctionCall {
+            function,
+            arguments,
+            set,
+        } => Expr::FunctionCall {
+            function,
             arguments: arguments
                 .into_iter()
                 .map(|arg| replace_expr(arg, generics.clone()))
