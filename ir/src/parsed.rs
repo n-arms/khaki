@@ -112,6 +112,7 @@ pub enum Expr {
 pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Identifier,
+    pub binding_type: Option<Type>,
     pub body: Expr,
 }
 

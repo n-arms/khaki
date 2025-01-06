@@ -139,6 +139,7 @@ fn infer_expr(
                     let mut inner = env.clone();
                     let typ = enum_def.variant_type(&case.variant);
                     inner.insert(case.binding.clone(), typ.clone());
+                    case.binding_type = Some(typ.clone());
                     infer_expr(&mut case.body, inner, uf, enums)
                 })
                 .collect();

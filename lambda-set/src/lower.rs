@@ -176,7 +176,6 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                 head: func_name,
                 cases,
             });
-            let typ = lower_type(&lambda_struct.lambdas[0].result, lower);
             functions.push(base::Function {
                 name: Identifier::from(format!("call_closure_{}", token)),
                 arguments,
@@ -264,7 +263,8 @@ fn lower_type(to_lower: &Type, lower: &mut Lower) -> base::Type {
 }
 
 fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Variable {
-    let result = lower.fresh_var(lower_type(&to_lower.typ(), lower));
+    let result_typ = lower_type(&to_lower.typ(), lower);
+    let result = lower.fresh_var(result_typ);
     match to_lower {
         Expr::Integer(int) => {
             stmts.push(Stmt::Let {
@@ -294,7 +294,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
                     },
                 });
             } else {
-                return Variable::new(name.clone(), lower_type(&typ.unwrap(), lower));
+                return Variable::new(name.clone(), lower_type(typ.as_ref().unwrap(), lower));
             }
         }
         Expr::FunctionCall {
@@ -349,13 +349,6 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
             });
         }
         Expr::Tuple(elems) => {
-            let payload_typ = lower.tuple_name(
-                elems
-                    .iter()
-                    .map(|elem| elem.typ())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            );
             let payload = base::Expr::Tuple(
                 elems
                     .iter()
@@ -396,9 +389,13 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
                         var: result.clone(),
                         value: base::Expr::Variable(case_result),
                     });
+                    let binding = Variable::new(
+                        case.binding.clone(),
+                        lower_type(case.binding_type.as_ref().unwrap(), lower),
+                    );
                     base::MatchCase {
                         variant: case.variant.clone(),
-                        binding: todo!(),
+                        binding,
                         body,
                     }
                 })
