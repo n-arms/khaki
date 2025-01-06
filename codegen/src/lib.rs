@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use std::collections::HashMap;
 
 use generator::{self as gen, Kind};

@@ -59,8 +59,8 @@ fn comma_list<T>(element: parser!(T)) -> parser!(Vec<T>) {
 fn typ() -> parser!(Type) {
     recursive::recursive(|typ| {
         let int = keyword("Int").map(|_| Type::Integer);
-        let var = identifier().map(|name| Type::Variable(name));
-        let cons = upper_identifier().map(|name| Type::Constructor(name));
+        let var = identifier().map(Type::Variable);
+        let cons = upper_identifier().map(Type::Constructor);
         let func = just('(')
             .ignore_then(comma_list(typ.clone()))
             .then_ignore(just(')'))
@@ -74,7 +74,7 @@ fn typ() -> parser!(Type) {
             .ignore_then(comma_list(typ.clone()))
             .then_ignore(just('|'))
             .then_ignore(just('>'))
-            .map(|elems| Type::Tuple(elems));
+            .map(Type::Tuple);
         pad(func.or(int).or(var).or(tuple).or(cons))
     })
 }
@@ -140,7 +140,7 @@ fn expr() -> parser!(Expr) {
         .ignore_then(comma_list(expr.clone()))
         .then_ignore(just('|'))
         .then_ignore(just('>'))
-        .map(|elems| Expr::Tuple(elems));
+        .map(Expr::Tuple);
     let variant = upper_identifier()
         .then_ignore(just(':'))
         .then_ignore(just(':'))
@@ -182,7 +182,7 @@ fn expr() -> parser!(Expr) {
         .ignore_then(comma_list(expr.clone()))
         .then_ignore(just(')')));
 
-    let addon = access.map(|field| Ok(field)).or(call.map(|args| Err(args)));
+    let addon = access.map(Ok).or(call.map(Err));
     let trivial = pad(integer
         .or(match_)
         .or(variant)

@@ -19,11 +19,11 @@ impl UnionFind {
 
     pub fn root(&mut self, token: usize) -> usize {
         if self.elems[token] == token {
-            return token;
+            token
         } else {
             let root = self.root(self.elems[token]);
             self.elems[token] = root;
-            return root;
+            root
         }
     }
 }
