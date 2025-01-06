@@ -16,6 +16,7 @@ pub(crate) struct Lower {
     tuples: HashMap<Vec<Type>, Identifier>,
     // list of user defined functions
     functions: HashSet<Identifier>,
+    structs: Vec<base::Struct>,
     names: usize,
 }
 
@@ -41,8 +42,9 @@ impl Lower {
         Self {
             pools,
             tuples: HashMap::new(),
-            names: 0,
             functions,
+            structs: Vec::new(),
+            names: 0,
         }
     }
 
@@ -63,6 +65,11 @@ impl Lower {
         } else {
             let name = self.fresh_name("tuple");
             self.tuples.insert(tuple.to_vec(), name.clone());
+            let fields = tuple.iter().map(|elem| lower_type(elem, self)).collect();
+            self.structs.push(base::Struct {
+                name: name.clone(),
+                fields,
+            });
             name
         }
     }
@@ -172,9 +179,9 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         {
             for lambda in &lambda_struct.lambdas {
                 let arguments = lambda
-                    .captures
+                    .arguments
                     .iter()
-                    .chain(lambda.arguments.iter())
+                    .chain(lambda.captures.iter())
                     .map(|arg| base::Argument {
                         name: arg.name.clone(),
                         typ: lower_type(&arg.typ, lower),
@@ -204,7 +211,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
     base::Program {
         enums,
         functions,
-        structs: Vec::new(),
+        structs: lower.structs.clone(),
     }
 }
 
