@@ -7,6 +7,14 @@ pub fn gen_program(program: &Program) -> gen::Program {
     let mut builder = gen::Program::default();
 
     for enum_def in &program.enums {
+        builder.forward_definition(Kind::Struct, enum_def.name.name.clone());
+    }
+
+    for struct_def in &program.structs {
+        builder.forward_definition(Kind::Struct, struct_def.name.name.clone());
+    }
+
+    for enum_def in &program.enums {
         gen_enum(enum_def, &mut builder);
     }
 
