@@ -133,7 +133,12 @@ fn eliminate_expr(expr: &mut Expr, el: &Eliminator, uf: &mut UnionFind) {
             set,
             arguments,
         } => {
-            todo!()
+            for arg in arguments.iter_mut() {
+                eliminate_expr(arg, el, uf);
+            }
+            let root = uf.root(set.token);
+            let lambda_struct = el.pools[&root].clone();
+            eliminate_expr(function.as_mut(), el, uf);
         }
         Expr::Function {
             captures,
