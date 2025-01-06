@@ -19,12 +19,15 @@ fn main() {
                 }
             };
             let mut flat = flatten::program(parsed);
-            lambda_set::program(&mut flat);
-            for func in &flat.functions {
-                println!("{:?}", func);
-            }
+            println!("flattened program");
+            let base = lambda_set::program(&mut flat);
+            println!("lowered program");
+            println!("{:?}", base);
+            println!("printed program");
+            /*
             let gen = codegen::program(&flat);
             println!("{}", gen);
+            */
             text.clear();
         }
         text.push_str(&line);

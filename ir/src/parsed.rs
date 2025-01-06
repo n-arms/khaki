@@ -93,6 +93,7 @@ pub enum Expr {
         result: Type,
         body: Box<Expr>,
         set: LambdaSet,
+        name: Identifier,
     },
     Tuple(Vec<Expr>),
     TupleAccess(Box<Expr>, usize),
@@ -141,7 +142,7 @@ impl Expr {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     Integer,
     Variable(Identifier),
@@ -150,7 +151,7 @@ pub enum Type {
     Constructor(Identifier),
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LambdaSet {
     pub token: usize,
 }

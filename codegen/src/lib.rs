@@ -135,7 +135,9 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
             function,
             arguments,
             set,
-        } => {}
+        } => {
+            todo!()
+        }
         Expr::Function { .. } => unreachable!(),
         Expr::Tuple(elems) => {
             let typ = elems.iter().map(|e| e.typ()).collect::<Vec<_>>();
