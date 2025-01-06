@@ -1,5 +1,5 @@
-use generator::{self as gen, Kind};
-use ir::base::{Enum, Function, Program, Struct, Type};
+use generator::{self as gen, commas_with, Kind};
+use ir::base::{Enum, Expr, Function, Program, Stmt, Struct, Type};
 
 mod generator;
 
@@ -26,20 +26,82 @@ pub fn gen_program(program: &Program) -> gen::Program {
         gen_foward_function(func, &mut builder);
     }
 
+    for func in &program.functions {
+        gen_function(func, &mut builder);
+    }
+
     builder
 }
 
-fn gen_foward_function(func: &Function, builder: &mut gen::Program) {
+fn gen_function(func: &Function, builder: &mut gen::Program) {
+    let mut header = forward_function(func);
+    let mut block = gen::Block::default();
+
+    for stmt in &func.body {
+        gen_stmt(stmt, &mut block);
+    }
+
+    block.line(format!("return {}", func.result.name));
+    header.body = Some(block);
+    builder.function(header);
+}
+
+fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
+    match stmt {
+        Stmt::Let { name, typ, value } => {
+            let expr_format = gen_expr(value, typ, block);
+            block.line(format!("{} {} = {}", gen_type(typ), name.name, expr_format));
+        }
+        Stmt::Match { head, cases } => {
+            todo!()
+        }
+    }
+}
+
+fn gen_expr(expr: &Expr, typ: &Type, block: &mut gen::Block) -> String {
+    match expr {
+        Expr::Integer(int) => int.to_string(),
+        Expr::Variable(var) => var.name.clone(),
+        Expr::DirectCall {
+            function,
+            arguments,
+        } => {
+            format!(
+                "{}({})",
+                function.name,
+                commas_with(arguments, |arg| &arg.name)
+            )
+        }
+        Expr::Tuple(elems) => {
+            format!(
+                "({}) {{{}}}",
+                gen_type(typ),
+                commas_with(elems, |elem| &elem.name)
+            )
+        }
+        Expr::TupleAccess(tuple, field) => {
+            format!("{}.field{}", tuple.name, field)
+        }
+        Expr::Enum { typ, tag, argument } => {
+            format!(
+                "(struct {}) {{ {}_{}, {{ .{} = {} }} }}",
+                typ.name, typ.name, tag.name, tag.name, argument.name
+            )
+        }
+    }
+}
+
+fn forward_function(func: &Function) -> gen::Function {
     let arguments = func
         .arguments
         .iter()
         .map(|arg| (gen_type(&arg.typ), arg.name.name.clone()))
         .collect();
-    builder.function(gen::Function::forward(
-        gen_type(&func.typ),
-        func.name.name.clone(),
-        arguments,
-    ))
+    gen::Function::forward(gen_type(&func.typ), func.name.name.clone(), arguments)
+}
+
+fn gen_foward_function(func: &Function, builder: &mut gen::Program) {
+    builder.function(forward_function(func));
 }
 
 fn gen_struct(struct_def: &Struct, builder: &mut gen::Program) {
