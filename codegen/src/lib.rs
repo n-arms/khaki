@@ -53,7 +53,25 @@ fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
             block.line(format!("{} {} = {}", gen_type(typ), name.name, expr_format));
         }
         Stmt::Match { head, cases } => {
-            todo!()
+            let mut case_block = gen::Block::default();
+            for case in cases {
+                let mut inner_block = gen::Block::default();
+                inner_block.line(format!(
+                    "{} {} = {}.value.{}",
+                    gen_type(todo!()),
+                    case.binding.name,
+                    head.name,
+                    case.variant.name
+                ));
+                for stmt in &case.body {
+                    gen_stmt(&stmt, &mut inner_block);
+                }
+                case_block.block(
+                    format!("case {}_{}:", todo!(), case.variant.name),
+                    inner_block,
+                );
+            }
+            block.block(format!("switch ({})", head.name), case_block);
         }
     }
 }
