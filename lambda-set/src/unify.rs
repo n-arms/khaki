@@ -17,7 +17,7 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
                 union_type(arg1, arg2, uf);
             }
 
-            union_type(&res1, &res2, uf);
+            union_type(res1, res2, uf);
         }
         (Tuple(elems1), Tuple(elems2)) => {
             assert_eq!(elems1.len(), elems2.len());
@@ -52,7 +52,7 @@ fn infer_expr(
     match to_infer {
         Expr::Integer(_) => Type::Integer,
         Expr::Variable { name, typ, .. } => {
-            let env_typ = env[&name].clone();
+            let env_typ = env[name].clone();
             if let Some(old_typ) = typ {
                 union_type(old_typ, &env_typ, uf);
             } else {
@@ -96,7 +96,7 @@ fn infer_expr(
                 inner.insert(arg.name.clone(), arg.typ.clone());
             }
             let inferred_result = infer_expr(body.as_mut(), inner, uf, enums);
-            union_type(&result, &inferred_result, uf);
+            union_type(result, &inferred_result, uf);
 
             let arg_types = arguments.iter().map(|arg| arg.typ.clone()).collect();
 

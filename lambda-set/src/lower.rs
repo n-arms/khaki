@@ -1,9 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
-
-use crate::{patch::Lambda, union_find::UnionFind};
+use crate::patch::Lambda;
 use im::{HashMap, HashSet};
 use ir::base::{self, Stmt};
-use ir::parsed::{Argument, Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
+use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
 #[derive(Clone)]
 pub(crate) struct LambdaStruct {
@@ -61,7 +59,7 @@ impl Lower {
 
     fn tuple_name(&mut self, tuple: &[Type]) -> Identifier {
         if let Some(name) = self.tuples.get(tuple) {
-            return name.clone();
+            name.clone()
         } else {
             let name = self.fresh_name("tuple");
             self.tuples.insert(tuple.to_vec(), name.clone());
@@ -204,7 +202,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         functions.push(lower_function(func, lower));
     }
 
-    for (_, enum_def) in &to_lower.enums {
+    for enum_def in to_lower.enums.values() {
         enums.push(lower_enum(enum_def, lower));
     }
 
@@ -299,7 +297,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
             set,
             arguments,
         } => {
-            let lowered_func = lower_expr(&function, stmts, lower);
+            let lowered_func = lower_expr(function, stmts, lower);
             let lowered_args: Vec<_> = arguments
                 .iter()
                 .map(|arg| lower_expr(arg, stmts, lower))

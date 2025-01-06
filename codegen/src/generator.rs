@@ -15,7 +15,7 @@ pub enum Kind {
 pub struct Definition {
     kind: Kind,
     name: String,
-    fields: Vec<String>,
+    fields: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -38,8 +38,19 @@ pub enum Statement {
 }
 
 impl Program {
+    pub fn forward_definition(&mut self, kind: Kind, name: String) {
+        self.defs.push(Definition {
+            kind,
+            name,
+            fields: None,
+        })
+    }
     pub fn definition(&mut self, kind: Kind, name: String, fields: Vec<String>) {
-        self.defs.push(Definition { kind, name, fields });
+        self.defs.push(Definition {
+            kind,
+            name,
+            fields: Some(fields),
+        });
     }
 
     pub fn function(&mut self, function: Function) {
@@ -66,14 +77,19 @@ impl Definition {
         let mut output = String::from(self.kind.keyword());
         output.push(' ');
         output.push_str(&self.name);
-        output.push_str(" {\n");
-        for field in self.fields {
-            output.push_str(&ind(1));
-            output.push_str(&field);
-            output.push_str(self.kind.delimeter());
-            output.push('\n')
+
+        if let Some(fields) = self.fields {
+            output.push_str(" {\n");
+            for field in fields {
+                output.push_str(&ind(1));
+                output.push_str(&field);
+                output.push_str(self.kind.delimeter());
+                output.push('\n')
+            }
+            output.push('}');
         }
-        output.push_str("};\n");
+        output.push_str(";\n");
+
         output
     }
 }
@@ -88,6 +104,7 @@ impl Function {
         }
     }
 
+    #[allow(dead_code, clippy::self_named_constructors)]
     pub fn function(
         result: String,
         name: String,

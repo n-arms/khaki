@@ -148,12 +148,12 @@ impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {:?}(", self.name)?;
         comma_list(f, &self.arguments)?;
-        write!(f, ") -> {:?} {{\n", self.typ)?;
+        writeln!(f, ") -> {:?} {{", self.typ)?;
         for stmt in &self.body {
             stmt.fmt(1, f)?;
         }
         indent(1, f)?;
-        write!(f, "return {:?};\n}}\n", self.result)
+        writeln!(f, "return {:?};\n}}", self.result)
     }
 }
 
@@ -161,7 +161,7 @@ impl fmt::Debug for Struct {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "struct {:?} {{", self.name)?;
         comma_list(f, &self.fields)?;
-        write!(f, "}}\n")
+        writeln!(f, "}}")
     }
 }
 
@@ -174,7 +174,7 @@ impl fmt::Debug for Enum {
                 .iter()
                 .map(|(name, typ)| format!("{:?}({:?})", name, typ)),
         )?;
-        write!(f, "}}\n")
+        writeln!(f, "}}")
     }
 }
 
@@ -189,20 +189,20 @@ impl Stmt {
         indent(ind, f)?;
         match self {
             Stmt::Let { name, typ, value } => {
-                write!(f, "let {:?}: {:?} = {:?};\n", name, typ, value)
+                writeln!(f, "let {:?}: {:?} = {:?};", name, typ, value)
             }
             Stmt::Match { head, cases } => {
-                write!(f, "match {:?} {{\n", head)?;
+                writeln!(f, "match {:?} {{", head)?;
                 for case in cases {
                     indent(ind + 1, f)?;
-                    write!(f, "{:?}({:?}) => {{\n", case.variant, case.binding)?;
+                    writeln!(f, "{:?}({:?}) => {{", case.variant, case.binding)?;
                     for stmt in &case.body {
                         stmt.fmt(ind + 2, f)?;
                     }
                     indent(ind + 1, f)?;
-                    write!(f, "}}\n")?;
+                    writeln!(f, "}}")?;
                 }
-                write!(f, "}}\n")
+                writeln!(f, "}}")
             }
         }
     }
