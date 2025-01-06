@@ -56,12 +56,8 @@ fn parse_error(text: &str, error: Simple<char>) {
 fn codegen_program(program: &str) {
     let parsed = parse_program(&program).unwrap();
     let mut flat = flatten::program(parsed);
-    lambda_set::program(&mut flat);
-    for func in &flat.functions {
-        println!("{:?}", func);
-    }
-    let gen = codegen::program(&flat);
-    println!("{}", gen);
+    let base = lambda_set::program(&mut flat);
+    println!("{:?}", base)
 }
 
 #[cfg(test)]
@@ -94,6 +90,15 @@ mod test {
             fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
             fn const[a, b](x: a) -> (b) -> a = [x: a](y: b) -> a = x
             fn main() -> (Int) -> Int = const[Int, Int](3)
+        "#,
+        )
+    }
+
+    #[test]
+    fn calling_closures() {
+        codegen_program(
+            r#"
+            fn main() -> Int = ([](x: Int) -> Int = x)(5)
         "#,
         )
     }
