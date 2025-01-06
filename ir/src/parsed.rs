@@ -46,7 +46,7 @@ impl Function {
         Type::Function(
             self.arguments.iter().map(|arg| arg.typ.clone()).collect(),
             Box::new(self.result.clone()),
-            LambdaSet::one(self.name.clone(), token),
+            LambdaSet::new(token),
         )
     }
 }
@@ -93,7 +93,6 @@ pub enum Expr {
         result: Type,
         body: Box<Expr>,
         set: LambdaSet,
-        name: Identifier,
     },
     Tuple(Vec<Expr>),
     TupleAccess(Box<Expr>, usize),
@@ -141,7 +140,7 @@ impl Expr {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone)]
 pub enum Type {
     Integer,
     Variable(Identifier),
@@ -152,48 +151,16 @@ pub enum Type {
 
 #[derive(Clone)]
 pub struct LambdaSet {
-    pub pool: Rc<RefCell<Vec<Identifier>>>,
     pub token: usize,
 }
 
-impl PartialEq for LambdaSet {
-    fn eq(&self, other: &Self) -> bool {
-        self.pool.as_ptr() == other.pool.as_ptr()
-    }
-}
-
-impl PartialOrd for LambdaSet {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Eq for LambdaSet {}
-impl Ord for LambdaSet {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.pool.as_ptr().cmp(&other.pool.as_ptr())
-    }
-}
-
-impl hash::Hash for LambdaSet {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.pool.as_ptr().hash(state);
-    }
-}
-
 impl LambdaSet {
-    pub fn one(lambda: Identifier, token: usize) -> LambdaSet {
-        LambdaSet {
-            pool: Rc::new(RefCell::new(vec![lambda.clone()])),
-            token,
-        }
+    pub fn dummy() -> Self {
+        Self { token: 0 }
     }
 
-    pub fn dummy() -> LambdaSet {
-        LambdaSet {
-            pool: Rc::default(),
-            token: 0,
-        }
+    fn new(token: usize) -> Self {
+        Self { token }
     }
 }
 
@@ -260,7 +227,7 @@ impl fmt::Debug for Argument {
     }
 }
 
-fn comma_list<I: fmt::Debug>(
+pub(crate) fn comma_list<I: fmt::Debug>(
     f: &mut fmt::Formatter<'_>,
     list: impl IntoIterator<Item = I>,
 ) -> fmt::Result {
@@ -302,7 +269,7 @@ impl fmt::Debug for Type {
                     comma_list(f, args)?;
                     write!(f, ")")?;
                 }
-                write!(f, " - {:?} -> {:?}", set.pool.borrow(), result)
+                write!(f, " - {:?} -> {:?}", set.token, result)
             }
             Type::Variable(name) => write!(f, "{:?}", name),
             Type::Tuple(elems) => {
@@ -348,13 +315,7 @@ impl fmt::Debug for Expr {
                 comma_list(f, captures)?;
                 write!(f, "](")?;
                 comma_list(f, arguments)?;
-                write!(
-                    f,
-                    ") - {:?} -> {:?} = {:?}",
-                    set.pool.borrow(),
-                    result,
-                    body
-                )
+                write!(f, ") - {:?} -> {:?} = {:?}", set.token, result, body)
             }
             Expr::Tuple(elems) => {
                 write!(f, "<|")?;
