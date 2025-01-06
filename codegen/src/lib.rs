@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use std::collections::HashMap;
 
 use generator::{self as gen, Kind};
@@ -131,11 +132,7 @@ fn expr(to_gen: &Expr, block: &mut gen::Block, env: &mut Env) -> String {
     match to_gen {
         Expr::Integer(int) => int.to_string(),
         Expr::Variable { name, .. } => name.name.clone(),
-        Expr::FunctionCall {
-            function,
-            arguments,
-            set,
-        } => {
+        Expr::FunctionCall { .. } => {
             todo!()
         }
         Expr::Function { .. } => unreachable!(),

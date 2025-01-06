@@ -1,10 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
-
 use im::HashMap;
-use ir::{
-    base,
-    parsed::{Argument, Enum, Expr, Function, Identifier, Program, Type},
-};
+use ir::{base, parsed::Program};
 use lower::{lower_program, Lower};
 use patch::{patch_function, Lambda, Patcher};
 use unify::infer_function;

@@ -88,6 +88,7 @@ impl Function {
         }
     }
 
+    #[allow(dead_code)]
     pub fn function(
         result: String,
         name: String,

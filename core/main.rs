@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 use chumsky::error::Simple;
 use parser::parse_program;
 
@@ -8,7 +10,7 @@ fn main() {
     let mut text = String::new();
     for line in stdin.lock().lines() {
         let line = line.unwrap();
-        if line == "" {
+        if line.is_empty() {
             let parsed = match parse_program(&text) {
                 Ok(p) => p,
                 Err(errors) => {
@@ -24,10 +26,6 @@ fn main() {
             println!("lowered program");
             println!("{:?}", base);
             println!("printed program");
-            /*
-            let gen = codegen::program(&flat);
-            println!("{}", gen);
-            */
             text.clear();
         }
         text.push_str(&line);
@@ -38,7 +36,7 @@ fn main() {
 fn parse_error(text: &str, error: Simple<char>) {
     use ariadne::*;
     Report::build(ReportKind::Error, error.span())
-        .with_message(format!("Parse error"))
+        .with_message("Parse error")
         .with_note(format!(
             "Expected one of {:?}",
             error.expected().collect::<Vec<_>>()
@@ -53,16 +51,16 @@ fn parse_error(text: &str, error: Simple<char>) {
         .unwrap();
 }
 
-fn codegen_program(program: &str) {
-    let parsed = parse_program(&program).unwrap();
-    let mut flat = flatten::program(parsed);
-    let base = lambda_set::program(&mut flat);
-    println!("{:?}", base)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn codegen_program(program: &str) {
+        let parsed = parse_program(&program).unwrap();
+        let mut flat = flatten::program(parsed);
+        let base = lambda_set::program(&mut flat);
+        println!("{:?}", base)
+    }
 
     #[test]
     fn trivial() {
