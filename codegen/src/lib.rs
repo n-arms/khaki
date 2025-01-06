@@ -1,5 +1,5 @@
 use generator::{self as gen, Kind};
-use ir::base::{Enum, Program, Struct, Type};
+use ir::base::{Enum, Function, Program, Struct, Type};
 
 mod generator;
 
@@ -22,7 +22,24 @@ pub fn gen_program(program: &Program) -> gen::Program {
         gen_struct(struct_def, &mut builder);
     }
 
+    for func in &program.functions {
+        gen_foward_function(func, &mut builder);
+    }
+
     builder
+}
+
+fn gen_foward_function(func: &Function, builder: &mut gen::Program) {
+    let arguments = func
+        .arguments
+        .iter()
+        .map(|arg| (gen_type(&arg.typ), arg.name.name.clone()))
+        .collect();
+    builder.function(gen::Function::forward(
+        gen_type(&func.typ),
+        func.name.name.clone(),
+        arguments,
+    ))
 }
 
 fn gen_struct(struct_def: &Struct, builder: &mut gen::Program) {
