@@ -49,16 +49,19 @@ fn gen_function(func: &Function, builder: &mut gen::Program) {
 fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
     match stmt {
         Stmt::Let { var, value } => {
-            let expr_format = gen_expr(value, &var.typ, block);
+            let expr_format = gen_expr(value, &var.typ);
             block.line(format!("{} {} = {}", gen_type(&var.typ), var, expr_format));
         }
         Stmt::Match { head, cases } => {
             let mut case_block = gen::Block::default();
+            let Type::Constructor(enum_name) = head.typ.clone() else {
+                unreachable!()
+            };
             for case in cases {
                 let mut inner_block = gen::Block::default();
                 inner_block.line(format!(
                     "{} {} = {}.value.{}",
-                    gen_type(todo!()),
+                    gen_type(&case.binding.typ),
                     case.binding,
                     head,
                     case.variant.name
@@ -67,16 +70,16 @@ fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
                     gen_stmt(&stmt, &mut inner_block);
                 }
                 case_block.block(
-                    format!("case {}_{}:", todo!(), case.variant.name),
+                    format!("case {}_{}:", enum_name.name, case.variant.name),
                     inner_block,
                 );
             }
-            block.block(format!("switch ({})", head), case_block);
+            block.block(format!("switch ({}.tag)", head), case_block);
         }
     }
 }
 
-fn gen_expr(expr: &Expr, typ: &Type, block: &mut gen::Block) -> String {
+fn gen_expr(expr: &Expr, typ: &Type) -> String {
     match expr {
         Expr::Integer(int) => int.to_string(),
         Expr::Variable(var) => var.to_string(),
