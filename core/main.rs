@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 
 use chumsky::error::Simple;
+use codegen::gen_program;
 use parser::parse_program;
 
 use std::io::{self, BufRead};
@@ -21,11 +22,11 @@ fn main() {
                 }
             };
             let mut flat = flatten::program(parsed);
-            println!("flattened program");
             let base = lambda_set::program(&mut flat);
-            println!("lowered program");
             println!("{:?}", base);
-            println!("printed program");
+
+            println!("{}", gen_program(&base).generate());
+
             text.clear();
         }
         text.push_str(&line);
