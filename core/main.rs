@@ -4,7 +4,10 @@ use chumsky::error::Simple;
 use codegen::gen_program;
 use parser::parse_program;
 
-use std::io::{self, BufRead};
+use std::{
+    fs,
+    io::{self, BufRead},
+};
 
 fn main() {
     let stdin = io::stdin();
@@ -25,7 +28,11 @@ fn main() {
             let base = lambda_set::program(&mut flat);
             println!("{:?}", base);
 
-            println!("{}", gen_program(&base).generate());
+            let c = gen_program(&base).generate();
+
+            println!("{}", c);
+
+            fs::write("./test.c", c).unwrap();
 
             text.clear();
         }
@@ -54,155 +61,198 @@ fn parse_error(text: &str, error: Simple<char>) {
 
 #[cfg(test)]
 mod test {
+    use std::{
+        fs,
+        path::Path,
+        process::Command,
+        time::{Duration, Instant, SystemTime},
+    };
+
     use super::*;
 
-    fn codegen_program(program: &str) {
+    fn run_program(program: &str, working: impl AsRef<Path> + Clone) -> i32 {
         let parsed = parse_program(&program).unwrap();
         let mut flat = flatten::program(parsed);
         let base = lambda_set::program(&mut flat);
-        println!("{:?}", base)
+        let data = codegen::gen_program(&base).generate();
+        println!("{}", data);
+        let name = format!("test{}", program.len());
+        let source = working
+            .as_ref()
+            .with_file_name(name.clone())
+            .with_extension(".c");
+        let binary = working.as_ref().with_file_name(name);
+        fs::write(source.clone(), data).unwrap();
+        assert!(Command::new("gcc")
+            .arg("-o")
+            .arg(binary.as_os_str())
+            .arg(source.as_os_str())
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap()
+            .success());
+        let output = Command::new(binary.as_os_str())
+            .spawn()
+            .unwrap()
+            .wait_with_output()
+            .unwrap();
+        output.status.code().unwrap()
+    }
+
+    macro_rules! test_program {
+        ($program:expr, $result:expr) => {{
+            let run_result = run_program($program, "./target");
+            if run_result != $result {
+                panic!(
+                    "Test failed: program output {} != expected {}\n\n{}",
+                    run_result, $result, $program
+                )
+            }
+        }};
     }
 
     #[test]
     fn trivial() {
-        codegen_program(
+        test_program!(
             r#"
-            fn main() -> Int = 3
-        "#,
+                fn main() -> Int = 2
+            "#,
+            2
         );
+    }
+
+    #[test]
+    fn tuple() {
+        test_program!(
+            r#"
+                fn main() -> Int = <|4, 3|>.1
+            "#,
+            3
+        )
     }
 
     #[test]
     fn monomorph() {
-        codegen_program(
+        test_program!(
             r#"
-            fn id[t](x: t) -> t = x
-            fn main() -> Int = id[Int](3)
-        "#,
-        )
-    }
-
-    #[test]
-    fn func_type() {
-        codegen_program(
-            r#"
-            fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
-            fn const[a, b](x: a) -> (b) -> a = [x: a](y: b) -> a = x
-            fn main() -> (Int) -> Int = const[Int, Int](3)
-        "#,
-        )
-    }
-
-    #[test]
-    fn calling_closures() {
-        codegen_program(
-            r#"
-            fn main() -> Int = ([](x: Int) -> Int = x)(5)
-        "#,
-        )
-    }
-
-    #[test]
-    fn calling_higher_order() {
-        codegen_program(
-            r#"
-            fn twice() -> () -> Int = []() -> Int = 3
-            fn main() -> Int = twice()()
-        "#,
-        )
-    }
-
-    #[test]
-    fn captures() {
-        codegen_program(
-            r#"
-            fn main(x: Int) -> Int = ([x: Int](y: Int) -> Int = x)(5)
-        "#,
-        )
-    }
-
-    #[test]
-    fn tuple_construction() {
-        codegen_program(
-            r#"
-            fn main() -> <|Int, Int|> = <|3, 4|>
-        "#,
-        )
-    }
-
-    #[test]
-    fn tuple_access() {
-        codegen_program(
-            r#"
-            fn swap[a, b](tuple: <|a, b|>) -> <|b, a|> = <|tuple.1, tuple.0|>
-            fn main() -> <|Int, Int|> = swap[Int, Int](<|3, 4|>)
-        "#,
+                fn id[t](x: t) -> t = x
+                fn main() -> Int = id[Int](4)
+            "#,
+            4
         );
     }
 
     #[test]
-    fn enum_def() {
-        codegen_program(
+    fn func_type() {
+        test_program!(
             r#"
-            enum Result {
-                ok(Int), err(Int)
-            }
-            fn main() -> Result = Result::ok(5)
-        "#,
-        )
+                fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
+                fn const[a, b](x: a) -> (b) -> a = [x: a](y: b) -> a = x
+                fn main() -> Int = const[Int, Int](5)(6)
+            "#,
+            5
+        );
+    }
+
+    #[test]
+    fn calling_closures() {
+        test_program!(
+            r#"
+                fn main() -> Int = ([](x: Int) -> Int = x)(7)
+            "#,
+            7
+        );
+    }
+
+    #[test]
+    fn calling_higher_order() {
+        test_program!(
+            r#"
+                fn twice() -> () -> Int = []() -> Int = 8
+                fn main() -> Int = twice()()
+            "#,
+            8
+        );
+    }
+
+    #[test]
+    fn captures() {
+        test_program!(
+            r#"
+                fn f(x: Int) -> Int = ([x: Int](y: Int) -> Int = x)(5)
+                fn main() -> Int = f(9)
+            "#,
+            9
+        );
+    }
+
+    #[test]
+    fn tuple_access() {
+        test_program!(
+            r#"
+                fn swap[a, b](tuple: <|a, b|>) -> <|b, a|> = <|tuple.1, tuple.0|>
+                fn main() -> Int = swap[Int, Int](<|10, 11|>).0
+            "#,
+            11
+        );
     }
 
     #[test]
     fn match_enum() {
-        codegen_program(
+        test_program!(
             r#"
-            enum Result {
-                ok(Int), err(Int)
-            }
-            fn decode(r: Result) -> <|Int, Int|> = match r {
-                ok(o) => <|o, 0|>,
-                err(e) => <|0, e|>
-            }
-            fn main() -> <|Int, Int|> = decode(Result::ok(3))
-        "#,
-        )
+                enum Result {
+                    ok(Int), err(Int)
+                }
+                fn decode(r: Result) -> <|Int, Int|> = match r {
+                    ok(o) => <|o, 0|>,
+                    err(e) => <|0, e|>
+                }
+                fn main() -> Int = decode(Result::ok(12)).0
+            "#,
+            12
+        );
     }
 
     #[test]
     fn nested_match() {
-        codegen_program(
+        test_program!(
             r#"
-            enum A {
-                b(Int), c(Int)
-            }
-            enum D {
-                e(<|Int, Int|>),
-                f(A)
-            }
-            fn decode_a(a: A) -> Int = match a {
-                b(x) => x,
-                c(x) => x
-            }
-            fn decode_d(d: D) -> Int = match d {
-                e(pair) => pair.0,
-                f(a) => decode_a(a)
-            }
-        "#,
-        )
+                enum A {
+                    b(Int), c(Int)
+                }
+                enum D {
+                    e(<|Int, Int|>),
+                    f(A)
+                }
+                fn decode_a(a: A) -> Int = match a {
+                    b(x) => x,
+                    c(x) => x
+                }
+                fn decode_d(d: D) -> Int = match d {
+                    e(pair) => pair.0,
+                    f(a) => decode_a(a)
+                }
+                fn main() -> Int = decode_d(D::f(A::b(13)))
+            "#,
+            13
+        );
     }
 
     #[test]
     fn direct_match() {
-        codegen_program(
+        test_program!(
             r#"
-            enum Box {
-                box(Int)
-            }
+                enum Box {
+                    box(Int)
+                }
 
-            fn three() -> Int = match Box::box(3) {
-                box(x) => x
-            }
-        "#,
-        )
+                fn main() -> Int = match Box::box(14) {
+                    box(x) => x
+                }
+            "#,
+            14
+        );
     }
 }
