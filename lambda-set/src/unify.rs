@@ -30,30 +30,63 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
     }
 }
 
+/// make the function sets unique in the given type
+fn update_type(typ: &mut Type, uf: &mut UnionFind) {
+    match typ {
+        Type::Integer => {}
+        Type::Variable(_) => {}
+        Type::Function(_, _, set) => {
+            set.token = uf.token();
+        }
+        Type::Tuple(elems) => {
+            for elem in elems {
+                update_type(elem, uf);
+            }
+        }
+        Type::Constructor(_) => {}
+    }
+}
+
 pub(crate) fn infer_function(
     to_infer: &mut Function,
     mut env: HashMap<Identifier, Type>,
     uf: &mut UnionFind,
-    enums: &collections::HashMap<Identifier, Enum>,
+    enums: &mut collections::HashMap<Identifier, Enum>,
 ) {
-    for arg in to_infer.arguments.iter().cloned() {
+    for (_, typ) in env.iter_mut() {
+        update_type(typ, uf);
+    }
+    for mut arg in to_infer.arguments.iter().cloned() {
+        update_type(&mut arg.typ, uf);
         env.insert(arg.name, arg.typ);
     }
-    let body_typ = infer_expr(&mut to_infer.body, env, uf, enums);
+    update_type(&mut to_infer.result, uf);
+    let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums);
+
+    println!(
+        "the function had result type {:?}, but it was infereed to have {:?}",
+        to_infer.result, body_typ
+    );
     union_type(&body_typ, &to_infer.result, uf);
+
+    let Type::Function(_, env_res, _) = env[&to_infer.name].clone() else {
+        unreachable!()
+    };
+    union_type(&body_typ, &env_res, uf);
 }
 
 fn infer_expr(
     to_infer: &mut Expr,
     env: HashMap<Identifier, Type>,
     uf: &mut UnionFind,
-    enums: &collections::HashMap<Identifier, Enum>,
+    enums: &mut collections::HashMap<Identifier, Enum>,
 ) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
         Expr::Variable { name, typ, .. } => {
             let env_typ = env[name].clone();
             if let Some(old_typ) = typ {
+                update_type(old_typ, uf);
                 union_type(old_typ, &env_typ, uf);
             } else {
                 *typ = Some(env_typ);
@@ -64,7 +97,6 @@ fn infer_expr(
             function,
             set,
             arguments,
-            ..
         } => {
             let Type::Function(env_args, env_res, env_set) =
                 infer_expr(function.as_mut(), env.clone(), uf, enums)
@@ -77,8 +109,7 @@ fn infer_expr(
                 union_type(&ty, env_arg, uf);
             }
 
-            set.token = uf.token();
-            uf.merge(set.token, env_set.token);
+            set.token = env_set.token;
 
             env_res.as_ref().clone()
         }
@@ -90,9 +121,11 @@ fn infer_expr(
             set,
             ..
         } => {
+            update_type(result, uf);
             set.token = uf.token();
             let mut inner = env.clone();
-            for arg in arguments.iter().chain(captures.iter()) {
+            for arg in arguments.iter_mut().chain(captures.iter_mut()) {
+                update_type(&mut arg.typ, uf);
                 inner.insert(arg.name.clone(), arg.typ.clone());
             }
             let inferred_result = infer_expr(body.as_mut(), inner, uf, enums);
@@ -132,7 +165,11 @@ fn infer_expr(
             let Type::Constructor(enum_name) = head_typ else {
                 panic!()
             };
-            let enum_def = &enums[&enum_name];
+            let enum_def = enums.get_mut(&enum_name).unwrap();
+            for (_, typ) in enum_def.cases.iter_mut() {
+                update_type(typ, uf);
+            }
+            let enum_def = enums[&enum_name].clone();
             let case_typs: Vec<Type> = cases
                 .iter_mut()
                 .map(|case| {

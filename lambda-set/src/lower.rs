@@ -3,7 +3,7 @@ use im::{HashMap, HashSet};
 use ir::base::{self, Stmt, Variable};
 use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct LambdaStruct {
     lambdas: Vec<Lambda>,
     name: Identifier,
@@ -47,7 +47,10 @@ impl Lower {
     }
 
     fn lambda_set_type(&self, set: &LambdaSet) -> base::Type {
-        let lambda_struct = &self.pools[&set.token];
+        let lambda_struct = self
+            .pools
+            .get(&set.token)
+            .expect(&format!("unknown set {}", set.token));
         base::Type::Constructor(lambda_struct.name.clone())
     }
 

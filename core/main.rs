@@ -103,6 +103,16 @@ mod test {
     }
 
     #[test]
+    fn calling_higher_order() {
+        codegen_program(
+            r#"
+            fn twice() -> () -> Int = []() -> Int = 3
+            fn main() -> Int = twice()()
+        "#,
+        )
+    }
+
+    #[test]
     fn captures() {
         codegen_program(
             r#"

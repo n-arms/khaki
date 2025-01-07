@@ -67,7 +67,7 @@ fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
                     case.variant.name
                 ));
                 for stmt in &case.body {
-                    gen_stmt(&stmt, &mut inner_block);
+                    gen_stmt(stmt, &mut inner_block);
                 }
                 case_block.block(
                     format!("case {}_{}:", enum_name.name, case.variant.name),
