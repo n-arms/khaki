@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct UnionFind {
     elems: Vec<usize>,
 }
@@ -14,7 +15,9 @@ impl UnionFind {
     }
 
     pub fn merge(&mut self, first: usize, second: usize) {
-        self.elems[first] = second;
+        println!("merging sets {first} and {second}");
+        let first_root = self.root(first);
+        self.elems[first_root] = self.root(second);
     }
 
     pub fn root(&mut self, token: usize) -> usize {

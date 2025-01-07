@@ -41,45 +41,48 @@ fn gen_function(func: &Function, builder: &mut gen::Program) {
         gen_stmt(stmt, &mut block);
     }
 
-    block.line(format!("return {}", func.result.name));
+    block.line(format!("return {}", func.result));
     header.body = Some(block);
     builder.function(header);
 }
 
 fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
     match stmt {
-        Stmt::Let { name, typ, value } => {
-            let expr_format = gen_expr(value, typ, block);
-            block.line(format!("{} {} = {}", gen_type(typ), name.name, expr_format));
+        Stmt::Let { var, value } => {
+            let expr_format = gen_expr(value, &var.typ);
+            block.line(format!("{} {} = {}", gen_type(&var.typ), var, expr_format));
         }
         Stmt::Match { head, cases } => {
             let mut case_block = gen::Block::default();
+            let Type::Constructor(enum_name) = head.typ.clone() else {
+                unreachable!()
+            };
             for case in cases {
                 let mut inner_block = gen::Block::default();
                 inner_block.line(format!(
                     "{} {} = {}.value.{}",
-                    gen_type(todo!()),
-                    case.binding.name,
-                    head.name,
+                    gen_type(&case.binding.typ),
+                    case.binding,
+                    head,
                     case.variant.name
                 ));
                 for stmt in &case.body {
-                    gen_stmt(&stmt, &mut inner_block);
+                    gen_stmt(stmt, &mut inner_block);
                 }
                 case_block.block(
-                    format!("case {}_{}:", todo!(), case.variant.name),
+                    format!("case {}_{}:", enum_name.name, case.variant.name),
                     inner_block,
                 );
             }
-            block.block(format!("switch ({})", head.name), case_block);
+            block.block(format!("switch ({}.tag)", head), case_block);
         }
     }
 }
 
-fn gen_expr(expr: &Expr, typ: &Type, block: &mut gen::Block) -> String {
+fn gen_expr(expr: &Expr, typ: &Type) -> String {
     match expr {
         Expr::Integer(int) => int.to_string(),
-        Expr::Variable(var) => var.name.clone(),
+        Expr::Variable(var) => var.to_string(),
         Expr::DirectCall {
             function,
             arguments,
@@ -87,23 +90,23 @@ fn gen_expr(expr: &Expr, typ: &Type, block: &mut gen::Block) -> String {
             format!(
                 "{}({})",
                 function.name,
-                commas_with(arguments, |arg| &arg.name)
+                commas_with(arguments, |arg| arg.to_string())
             )
         }
         Expr::Tuple(elems) => {
             format!(
                 "({}) {{{}}}",
                 gen_type(typ),
-                commas_with(elems, |elem| &elem.name)
+                commas_with(elems, |elem| elem.to_string())
             )
         }
         Expr::TupleAccess(tuple, field) => {
-            format!("{}.field{}", tuple.name, field)
+            format!("{}.field{}", tuple, field)
         }
         Expr::Enum { typ, tag, argument } => {
             format!(
                 "(struct {}) {{ {}_{}, {{ .{} = {} }} }}",
-                typ.name, typ.name, tag.name, tag.name, argument.name
+                typ.name, typ.name, tag.name, tag.name, argument
             )
         }
     }
@@ -115,7 +118,11 @@ fn forward_function(func: &Function) -> gen::Function {
         .iter()
         .map(|arg| (gen_type(&arg.typ), arg.name.name.clone()))
         .collect();
-    gen::Function::forward(gen_type(&func.typ), func.name.name.clone(), arguments)
+    gen::Function::forward(
+        gen_type(&func.result.typ),
+        func.name.name.clone(),
+        arguments,
+    )
 }
 
 fn gen_foward_function(func: &Function, builder: &mut gen::Program) {

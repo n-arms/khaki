@@ -1,9 +1,9 @@
 use crate::patch::Lambda;
 use im::{HashMap, HashSet};
-use ir::base::{self, Stmt};
+use ir::base::{self, Stmt, Variable};
 use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct LambdaStruct {
     lambdas: Vec<Lambda>,
     name: Identifier,
@@ -47,7 +47,10 @@ impl Lower {
     }
 
     fn lambda_set_type(&self, set: &LambdaSet) -> base::Type {
-        let lambda_struct = &self.pools[&set.token];
+        let lambda_struct = self
+            .pools
+            .get(&set.token)
+            .expect(&format!("unknown set {}", set.token));
         base::Type::Constructor(lambda_struct.name.clone())
     }
 
@@ -55,6 +58,10 @@ impl Lower {
         let name = self.names;
         self.names += 1;
         Identifier::from(format!("{}_{}", prefix, name))
+    }
+
+    fn fresh_var(&mut self, typ: base::Type) -> Variable {
+        Variable::new(self.fresh_name("var"), typ)
     }
 
     fn tuple_name(&mut self, tuple: &[Type]) -> Identifier {
@@ -107,47 +114,54 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
             cases,
         });
         {
-            let func_name = lower.fresh_name("var");
+            let func_name = lower.fresh_var(base::Type::Constructor(lambda_struct.name.clone()));
             let mut arguments: Vec<_> = lambda_struct.lambdas[0]
                 .arguments
                 .iter()
-                .map(|arg| base::Argument {
+                .map(|arg| base::Variable {
                     name: arg.name.clone(),
                     typ: lower_type(&arg.typ, lower),
                 })
                 .collect();
-            arguments.push(base::Argument {
-                name: func_name.clone(),
-                typ: base::Type::Constructor(lambda_struct.name.clone()),
-            });
+            arguments.push(func_name.clone());
             let mut body = Vec::new();
-            let result = lower.fresh_name("var");
+            let result_typ = lower_type(&lambda_struct.lambdas[0].result, lower);
+            let result = lower.fresh_var(result_typ);
             let cases = lambda_struct
                 .lambdas
                 .iter()
                 .map(|lambda| {
                     let mut body = Vec::new();
-                    let payload_var = lower.fresh_name("var");
+                    let payload_typ = base::Type::Constructor(
+                        lower.tuple_name(
+                            lambda
+                                .captures
+                                .iter()
+                                .map(|cap| cap.typ.clone())
+                                .collect::<Vec<_>>()
+                                .as_slice(),
+                        ),
+                    );
+                    let payload_var = lower.fresh_var(payload_typ);
 
                     let mut call_args: Vec<_> = lambda
                         .arguments
                         .iter()
-                        .map(|arg| arg.name.clone())
+                        .map(|arg| Variable::new(arg.name.clone(), lower_type(&arg.typ, lower)))
                         .collect();
 
                     for (i, cap) in lambda.captures.iter().enumerate() {
-                        let var = lower.fresh_name("var");
+                        let var_typ = lower_type(&cap.typ, lower);
+                        let var = lower.fresh_var(var_typ);
                         call_args.push(var.clone());
                         body.push(Stmt::Let {
-                            name: var,
-                            typ: lower_type(&cap.typ, lower),
+                            var,
                             value: base::Expr::TupleAccess(payload_var.clone(), i),
                         });
                     }
 
                     body.push(Stmt::Let {
-                        name: result.clone(),
-                        typ: lower_type(&lambda.result, lower),
+                        var: result.clone(),
                         value: base::Expr::DirectCall {
                             function: lambda.name.clone(),
                             arguments: call_args,
@@ -165,11 +179,9 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                 head: func_name,
                 cases,
             });
-            let typ = lower_type(&lambda_struct.lambdas[0].result, lower);
             functions.push(base::Function {
                 name: Identifier::from(format!("call_closure_{}", token)),
                 arguments,
-                typ,
                 body,
                 result,
             });
@@ -180,7 +192,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                     .arguments
                     .iter()
                     .chain(lambda.captures.iter())
-                    .map(|arg| base::Argument {
+                    .map(|arg| base::Variable {
                         name: arg.name.clone(),
                         typ: lower_type(&arg.typ, lower),
                     })
@@ -190,7 +202,6 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                 functions.push(base::Function {
                     name: lambda.name.clone(),
                     arguments,
-                    typ: lower_type(&lambda.result, lower),
                     body,
                     result,
                 });
@@ -230,7 +241,7 @@ fn lower_function(to_lower: &Function, lower: &mut Lower) -> base::Function {
     let arguments = to_lower
         .arguments
         .iter()
-        .map(|arg| base::Argument {
+        .map(|arg| base::Variable {
             name: arg.name.clone(),
             typ: lower_type(&arg.typ, lower),
         })
@@ -239,7 +250,6 @@ fn lower_function(to_lower: &Function, lower: &mut Lower) -> base::Function {
     base::Function {
         name: to_lower.name.clone(),
         arguments,
-        typ: lower_type(&to_lower.body.typ(), lower),
         body,
         result,
     }
@@ -255,13 +265,13 @@ fn lower_type(to_lower: &Type, lower: &mut Lower) -> base::Type {
     }
 }
 
-fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Identifier {
-    let result = lower.fresh_name("var");
+fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Variable {
+    let result_typ = lower_type(&to_lower.typ(), lower);
+    let result = lower.fresh_var(result_typ);
     match to_lower {
         Expr::Integer(int) => {
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: base::Type::Integer,
+                var: result.clone(),
                 value: base::Expr::Integer(*int),
             });
         }
@@ -273,15 +283,13 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
                 let typ = Identifier::from(format!("closure_{}", set.token));
                 let payload_typ = lower.tuple_name(&[]);
                 let payload = base::Expr::Tuple(Vec::new());
-                let payload_var = lower.fresh_name("var");
+                let payload_var = lower.fresh_var(base::Type::Constructor(payload_typ));
                 stmts.push(Stmt::Let {
-                    name: payload_var.clone(),
-                    typ: base::Type::Constructor(payload_typ),
+                    var: payload_var.clone(),
                     value: payload,
                 });
                 stmts.push(Stmt::Let {
-                    name: result.clone(),
-                    typ: base::Type::Constructor(typ.clone()),
+                    var: result.clone(),
                     value: base::Expr::Enum {
                         typ,
                         tag: name.clone(),
@@ -289,7 +297,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
                     },
                 });
             } else {
-                return name.clone();
+                return Variable::new(name.clone(), lower_type(typ.as_ref().unwrap(), lower));
             }
         }
         Expr::FunctionCall {
@@ -306,8 +314,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
             let mut call_set_args = lowered_args;
             call_set_args.push(lowered_func);
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: lower_type(&to_lower.typ(), lower),
+                var: result.clone(),
                 value: base::Expr::DirectCall {
                     function: func_name,
                     arguments: call_set_args,
@@ -321,23 +328,22 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
             ..
         } => {
             let typ = Identifier::from(format!("closure_{}", set.token));
-            let payload_typ = lower.tuple_name(
-                captures
-                    .iter()
-                    .map(|cap| cap.typ.clone())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            );
-            let payload = base::Expr::Tuple(captures.iter().map(|cap| cap.name.clone()).collect());
-            let payload_var = lower.fresh_name("var");
+            let (payload_vars, payload_typs): (Vec<_>, Vec<_>) = captures
+                .iter()
+                .map(|cap| {
+                    let typ = lower_type(&cap.typ, lower);
+                    (Variable::new(cap.name.clone(), typ), cap.typ.clone())
+                })
+                .unzip();
+            let payload_typ = lower.tuple_name(&payload_typs);
+            let payload = base::Expr::Tuple(payload_vars);
+            let payload_var = lower.fresh_var(base::Type::Constructor(payload_typ));
             stmts.push(Stmt::Let {
-                name: payload_var.clone(),
-                typ: base::Type::Constructor(payload_typ),
+                var: payload_var.clone(),
                 value: payload,
             });
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: base::Type::Constructor(typ.clone()),
+                var: result.clone(),
                 value: base::Expr::Enum {
                     typ,
                     tag: name.clone(),
@@ -346,13 +352,6 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
             });
         }
         Expr::Tuple(elems) => {
-            let payload_typ = lower.tuple_name(
-                elems
-                    .iter()
-                    .map(|elem| elem.typ())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            );
             let payload = base::Expr::Tuple(
                 elems
                     .iter()
@@ -360,24 +359,21 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
                     .collect(),
             );
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: base::Type::Constructor(payload_typ),
+                var: result.clone(),
                 value: payload,
             });
         }
         Expr::TupleAccess(tuple, field) => {
             let lowered_tuple = lower_expr(tuple.as_ref(), stmts, lower);
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: lower_type(&to_lower.typ(), lower),
+                var: result.clone(),
                 value: base::Expr::TupleAccess(lowered_tuple, *field),
             });
         }
         Expr::Enum { typ, tag, argument } => {
             let lowered_arg = lower_expr(argument.as_ref(), stmts, lower);
             stmts.push(Stmt::Let {
-                name: result.clone(),
-                typ: base::Type::Constructor(typ.clone()),
+                var: result.clone(),
                 value: base::Expr::Enum {
                     typ: typ.clone(),
                     tag: tag.clone(),
@@ -393,13 +389,16 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Iden
                     let mut body = Vec::new();
                     let case_result = lower_expr(&case.body, &mut body, lower);
                     body.push(Stmt::Let {
-                        name: result.clone(),
-                        typ: lower_type(&to_lower.typ(), lower),
+                        var: result.clone(),
                         value: base::Expr::Variable(case_result),
                     });
+                    let binding = Variable::new(
+                        case.binding.clone(),
+                        lower_type(case.binding_type.as_ref().unwrap(), lower),
+                    );
                     base::MatchCase {
                         variant: case.variant.clone(),
-                        binding: case.binding.clone(),
+                        binding,
                         body,
                     }
                 })

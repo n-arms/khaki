@@ -112,6 +112,7 @@ pub enum Expr {
 pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Identifier,
+    pub binding_type: Option<Type>,
     pub body: Expr,
 }
 
@@ -160,7 +161,7 @@ pub enum Type {
     Constructor(Identifier),
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LambdaSet {
     pub token: usize,
 }
@@ -310,9 +311,9 @@ impl fmt::Debug for Expr {
             Expr::FunctionCall {
                 function,
                 arguments,
-                ..
+                set,
             } => {
-                write!(f, "{:?}(", function)?;
+                write!(f, "{:?}:{}(", function, set.token)?;
                 comma_list(f, arguments)?;
                 write!(f, ")")
             }

@@ -168,6 +168,7 @@ fn expr() -> parser!(Expr) {
                 .map(|((variant, binding), body)| MatchCase {
                     variant,
                     binding,
+                    binding_type: None,
                     body,
                 }),
         ))

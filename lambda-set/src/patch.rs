@@ -12,7 +12,7 @@ pub(crate) struct Patcher {
     names: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Lambda {
     pub captures: Vec<Argument>,
     pub arguments: Vec<Argument>,
@@ -22,12 +22,22 @@ pub(crate) struct Lambda {
 }
 
 impl Patcher {
-    pub(crate) fn new(uf: UnionFind, functions: HashMap<Identifier, Lambda>) -> Self {
+    pub(crate) fn new(mut uf: UnionFind, functions: HashMap<Identifier, Lambda>) -> Self {
+        let patched_functions = functions
+            .into_iter()
+            .map(|(name, mut func)| {
+                for arg in func.captures.iter_mut().chain(func.arguments.iter_mut()) {
+                    patch_type_uf(&mut arg.typ, &mut uf);
+                }
+                patch_type_uf(&mut func.result, &mut uf);
+                (name, func)
+            })
+            .collect();
         Self {
             uf,
             lambdas: HashMap::new(),
             pools: HashMap::new(),
-            functions,
+            functions: patched_functions,
             names: 0,
         }
     }
@@ -52,34 +62,47 @@ impl Patcher {
     }
 
     fn function_name(&mut self, name: &Identifier, typ: &Type) {
-        if let Some(lambda) = self.functions.get(name) {
-            self.lambdas.insert(name.clone(), lambda.clone());
-            let Type::Function(_, _, set) = typ else {
-                unreachable!()
-            };
-            self.append_pool(set.token, name.clone());
+        let Some(lambda) = self.functions.get_mut(name) else {
+            return;
+        };
+        let mut new_lambda = lambda.clone();
+        for arg in new_lambda.arguments.iter_mut() {
+            patch_type(&mut arg.typ, self);
         }
+        patch_type(&mut new_lambda.result, self);
+        patch_expr(&mut new_lambda.body, self);
+        self.functions.insert(name.clone(), new_lambda.clone());
+        let lambda = new_lambda;
+        self.lambdas.insert(name.clone(), lambda.clone());
+        let Type::Function(_, _, set) = typ else {
+            unreachable!()
+        };
+        self.append_pool(set.token, name.clone());
     }
 }
 
-fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
+fn patch_type_uf(to_patch: &mut Type, patcher: &mut UnionFind) {
     match to_patch {
         Type::Integer => {}
         Type::Variable(_) => unreachable!(),
         Type::Function(args, result, set) => {
             for arg in args {
-                patch_type(arg, patcher);
+                patch_type_uf(arg, patcher);
             }
             set.token = patcher.root(set.token);
-            patch_type(result.as_mut(), patcher);
+            patch_type_uf(result.as_mut(), patcher);
         }
         Type::Tuple(elems) => {
             for elem in elems {
-                patch_type(elem, patcher);
+                patch_type_uf(elem, patcher);
             }
         }
         Type::Constructor(_) => {}
     }
+}
+
+fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
+    patch_type_uf(to_patch, &mut patcher.uf)
 }
 
 fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
@@ -143,6 +166,7 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             patch_expr(head.as_mut(), patcher);
             for case in cases {
                 patch_expr(&mut case.body, patcher);
+                patch_type(case.binding_type.as_mut().unwrap(), patcher);
             }
         }
     }
