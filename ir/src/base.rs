@@ -4,8 +4,7 @@ use std::fmt;
 
 #[derive(Clone)]
 pub struct Program {
-    pub enums: Vec<Enum>,
-    pub structs: Vec<Struct>,
+    pub definitions: Vec<Definition>,
     pub functions: Vec<Function>,
 }
 
@@ -14,6 +13,12 @@ pub struct Function {
     pub name: Identifier,
     pub arguments: Vec<Variable>,
     pub body: Block,
+}
+
+#[derive(Clone)]
+pub enum Definition {
+    Struct(Struct),
+    Enum(Enum),
 }
 
 #[derive(Clone)]
@@ -86,18 +91,33 @@ impl Variable {
     }
 }
 
+impl Definition {
+    pub fn name(&self) -> &Identifier {
+        match self {
+            Definition::Struct(def) => &def.name,
+            Definition::Enum(def) => &def.name,
+        }
+    }
+}
+
 impl fmt::Debug for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for enum_def in &self.enums {
-            enum_def.fmt(f)?;
-        }
-        for struct_def in &self.structs {
-            struct_def.fmt(f)?;
+        for def in &self.definitions {
+            def.fmt(f)?;
         }
         for func in &self.functions {
             func.fmt(f)?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for Definition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Definition::Struct(def) => def.fmt(f),
+            Definition::Enum(def) => def.fmt(f),
+        }
     }
 }
 
@@ -158,7 +178,7 @@ impl Expr {
                     indent(ind + 1, f)?;
                     write!(f, "{:?}({}) => ", case.variant, case.binding)?;
                     case.body.fmt(ind + 2, f)?;
-                    writeln!(f, "")?;
+                    writeln!(f)?;
                 }
                 indent(ind, f)?;
                 writeln!(f, "}}")
@@ -188,7 +208,7 @@ impl fmt::Debug for Function {
         comma_list(f, &self.arguments)?;
         writeln!(f, ") -> {:?} ", self.body.result.typ)?;
         self.body.fmt(0, f)?;
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 

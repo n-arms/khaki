@@ -1,25 +1,28 @@
 use generator::{self as gen, commas_with, Kind};
-use ir::base::{Enum, Expr, Function, MatchCase, Program, Stmt, Struct, Type, Variable};
+use ir::base::{
+    Definition, Enum, Expr, Function, MatchCase, Program, Stmt, Struct, Type, Variable,
+};
 
 mod generator;
 
 pub fn gen_program(program: &Program) -> gen::Program {
     let mut builder = gen::Program::default();
 
-    for enum_def in &program.enums {
-        builder.forward_definition(Kind::Struct, enum_def.name.name.clone());
+    for def in &program.definitions {
+        let name = match def {
+            Definition::Struct(def) => &def.name,
+            Definition::Enum(def) => &def.name,
+        }
+        .name
+        .clone();
+        builder.forward_definition(Kind::Struct, name);
     }
 
-    for struct_def in &program.structs {
-        builder.forward_definition(Kind::Struct, struct_def.name.name.clone());
-    }
-
-    for enum_def in &program.enums {
-        gen_enum(enum_def, &mut builder);
-    }
-
-    for struct_def in &program.structs {
-        gen_struct(struct_def, &mut builder);
+    for def in &program.definitions {
+        match def {
+            Definition::Struct(def) => gen_struct(def, &mut builder),
+            Definition::Enum(def) => gen_enum(def, &mut builder),
+        }
     }
 
     for func in &program.functions {

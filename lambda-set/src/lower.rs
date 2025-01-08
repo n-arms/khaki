@@ -1,3 +1,4 @@
+use crate::order;
 use crate::patch::Lambda;
 use im::{HashMap, HashSet};
 use ir::base::{self, Stmt, Variable};
@@ -50,7 +51,7 @@ impl Lower {
         let lambda_struct = self
             .pools
             .get(&set.token)
-            .expect(&format!("unknown set {}", set.token));
+            .unwrap_or_else(|| panic!("unknown set {}", set.token));
         base::Type::Constructor(lambda_struct.name.clone())
     }
 
@@ -236,10 +237,21 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         enums.push(lower_enum(enum_def, lower));
     }
 
+    let mut definitions = Vec::new();
+
+    for def in enums {
+        definitions.push(base::Definition::Enum(def));
+    }
+
+    for def in lower.structs.clone() {
+        definitions.push(base::Definition::Struct(def));
+    }
+
+    definitions = order::sort_definitions(definitions);
+
     base::Program {
-        enums,
         functions,
-        structs: lower.structs.clone(),
+        definitions,
     }
 }
 

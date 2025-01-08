@@ -6,6 +6,7 @@ use unify::infer_function;
 use union_find::UnionFind;
 
 mod lower;
+mod order;
 mod patch;
 mod unify;
 mod union_find;
