@@ -64,7 +64,7 @@ fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
 }
 
 fn gen_match(var: &Variable, head: &Variable, cases: &[MatchCase], block: &mut gen::Block) {
-    block.line(format!("{} {};", gen_type(&var.typ), var));
+    block.line(format!("{} {}", gen_type(&var.typ), var));
     let mut case_block = gen::Block::default();
     let Type::Constructor(enum_name) = head.typ.clone() else {
         unreachable!()
@@ -82,6 +82,7 @@ fn gen_match(var: &Variable, head: &Variable, cases: &[MatchCase], block: &mut g
             gen_stmt(stmt, &mut inner_block);
         }
         inner_block.line(format!("{} = {}", var, case.body.result));
+        inner_block.line("break".into());
         case_block.block(
             format!("case {}_{}:", enum_name.name, case.variant.name),
             inner_block,
