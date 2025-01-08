@@ -227,6 +227,20 @@ there are therefore three forms of lambda set: a generic variable, a unification
 each labling of a lambda set should contain
 */
 
+impl fmt::Debug for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for def in &self.enums {
+            writeln!(f, "{:?}", def)?;
+        }
+
+        for func in &self.functions {
+            writeln!(f, "{:?}", func)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl fmt::Debug for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)
@@ -291,6 +305,19 @@ impl fmt::Debug for Type {
             }
             Type::Constructor(name) => write!(f, "{:?}", name),
         }
+    }
+}
+
+impl fmt::Debug for Enum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "enum {} {{", self.name.name)?;
+        comma_list(
+            f,
+            self.cases
+                .iter()
+                .map(|(name, typ)| format!("{}({:?})", name.name, typ)),
+        )?;
+        writeln!(f, "}}")
     }
 }
 

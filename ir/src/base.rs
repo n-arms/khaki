@@ -181,7 +181,7 @@ impl Expr {
                     writeln!(f)?;
                 }
                 indent(ind, f)?;
-                writeln!(f, "}}")
+                write!(f, "}}")
             }
         }
     }
@@ -192,7 +192,6 @@ impl Block {
         writeln!(f, "{{\n")?;
 
         for stmt in &self.stmts {
-            indent(ind + 1, f)?;
             stmt.fmt(ind + 1, f)?;
         }
         indent(ind + 1, f)?;

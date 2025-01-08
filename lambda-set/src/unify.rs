@@ -63,10 +63,6 @@ pub(crate) fn infer_function(
     update_type(&mut to_infer.result, uf);
     let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums);
 
-    println!(
-        "the function had result type {:?}, but it was infereed to have {:?}",
-        to_infer.result, body_typ
-    );
     union_type(&body_typ, &to_infer.result, uf);
 
     let Type::Function(_, env_res, _) = env[&to_infer.name].clone() else {

@@ -30,7 +30,7 @@ fn main() {
 
             let c = gen_program(&base).generate();
 
-            println!("{}", c);
+            //println!("{}", c);
 
             fs::write("./test.c", c).unwrap();
 
