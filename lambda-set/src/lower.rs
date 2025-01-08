@@ -84,6 +84,25 @@ impl Lower {
     }
 }
 
+#[derive(Default)]
+struct BlockBuilder {
+    stmts: Vec<Stmt>,
+}
+
+impl BlockBuilder {
+    fn stmt(&mut self, var: Variable, value: base::Expr) -> &mut Self {
+        self.stmts.push(Stmt { var, value });
+        self
+    }
+
+    fn finish(self, result: Variable) -> base::Block {
+        base::Block {
+            stmts: self.stmts,
+            result,
+        }
+    }
+}
+
 pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Program {
     let mut functions = Vec::new();
     let mut enums = Vec::new();
@@ -124,14 +143,14 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                 })
                 .collect();
             arguments.push(func_name.clone());
-            let mut body = Vec::new();
+            let mut body = BlockBuilder::default();
             let result_typ = lower_type(&lambda_struct.lambdas[0].result, lower);
             let result = lower.fresh_var(result_typ);
             let cases = lambda_struct
                 .lambdas
                 .iter()
                 .map(|lambda| {
-                    let mut body = Vec::new();
+                    let mut body = BlockBuilder::default();
                     let payload_typ = base::Type::Constructor(
                         lower.tuple_name(
                             lambda
@@ -154,36 +173,37 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                         let var_typ = lower_type(&cap.typ, lower);
                         let var = lower.fresh_var(var_typ);
                         call_args.push(var.clone());
-                        body.push(Stmt::Let {
-                            var,
-                            value: base::Expr::TupleAccess(payload_var.clone(), i),
-                        });
+                        body.stmt(var, base::Expr::TupleAccess(payload_var.clone(), i));
                     }
 
-                    body.push(Stmt::Let {
-                        var: result.clone(),
-                        value: base::Expr::DirectCall {
+                    let call_var = lower.fresh_var(result.typ.clone());
+
+                    body.stmt(
+                        call_var.clone(),
+                        base::Expr::DirectCall {
                             function: lambda.name.clone(),
                             arguments: call_args,
                         },
-                    });
+                    );
 
                     base::MatchCase {
                         variant: lambda.name.clone(),
                         binding: payload_var.clone(),
-                        body,
+                        body: body.finish(call_var),
                     }
                 })
                 .collect();
-            body.push(Stmt::Match {
-                head: func_name,
-                cases,
-            });
+            body.stmt(
+                result.clone(),
+                base::Expr::Match {
+                    head: func_name,
+                    cases,
+                },
+            );
             functions.push(base::Function {
                 name: Identifier::from(format!("call_closure_{}", token)),
                 arguments,
-                body,
-                result,
+                body: body.finish(result),
             });
         }
         {
@@ -197,13 +217,12 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                         typ: lower_type(&arg.typ, lower),
                     })
                     .collect();
-                let mut body = Vec::new();
+                let mut body = BlockBuilder::default();
                 let result = lower_expr(&lambda.body, &mut body, lower);
                 functions.push(base::Function {
                     name: lambda.name.clone(),
                     arguments,
-                    body,
-                    result,
+                    body: body.finish(result),
                 });
             }
         }
@@ -237,7 +256,7 @@ fn lower_enum(to_lower: &Enum, lower: &mut Lower) -> base::Enum {
 }
 
 fn lower_function(to_lower: &Function, lower: &mut Lower) -> base::Function {
-    let mut body = Vec::new();
+    let mut body = BlockBuilder::default();
     let arguments = to_lower
         .arguments
         .iter()
@@ -250,8 +269,7 @@ fn lower_function(to_lower: &Function, lower: &mut Lower) -> base::Function {
     base::Function {
         name: to_lower.name.clone(),
         arguments,
-        body,
-        result,
+        body: body.finish(result),
     }
 }
 
@@ -265,15 +283,12 @@ fn lower_type(to_lower: &Type, lower: &mut Lower) -> base::Type {
     }
 }
 
-fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Variable {
+fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> Variable {
     let result_typ = lower_type(&to_lower.typ(), lower);
     let result = lower.fresh_var(result_typ);
     match to_lower {
         Expr::Integer(int) => {
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: base::Expr::Integer(*int),
-            });
+            stmts.stmt(result.clone(), base::Expr::Integer(*int));
         }
         Expr::Variable { name, typ, .. } => {
             if lower.is_function(name) {
@@ -284,18 +299,15 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
                 let payload_typ = lower.tuple_name(&[]);
                 let payload = base::Expr::Tuple(Vec::new());
                 let payload_var = lower.fresh_var(base::Type::Constructor(payload_typ));
-                stmts.push(Stmt::Let {
-                    var: payload_var.clone(),
-                    value: payload,
-                });
-                stmts.push(Stmt::Let {
-                    var: result.clone(),
-                    value: base::Expr::Enum {
+                stmts.stmt(payload_var.clone(), payload);
+                stmts.stmt(
+                    result.clone(),
+                    base::Expr::Enum {
                         typ,
                         tag: name.clone(),
                         argument: payload_var,
                     },
-                });
+                );
             } else {
                 return Variable::new(name.clone(), lower_type(typ.as_ref().unwrap(), lower));
             }
@@ -313,13 +325,13 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
             let func_name = Identifier::from(format!("call_closure_{}", set.token));
             let mut call_set_args = lowered_args;
             call_set_args.push(lowered_func);
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: base::Expr::DirectCall {
+            stmts.stmt(
+                result.clone(),
+                base::Expr::DirectCall {
                     function: func_name,
                     arguments: call_set_args,
                 },
-            });
+            );
         }
         Expr::Function {
             captures,
@@ -338,18 +350,15 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
             let payload_typ = lower.tuple_name(&payload_typs);
             let payload = base::Expr::Tuple(payload_vars);
             let payload_var = lower.fresh_var(base::Type::Constructor(payload_typ));
-            stmts.push(Stmt::Let {
-                var: payload_var.clone(),
-                value: payload,
-            });
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: base::Expr::Enum {
+            stmts.stmt(payload_var.clone(), payload);
+            stmts.stmt(
+                result.clone(),
+                base::Expr::Enum {
                     typ,
                     tag: name.clone(),
                     argument: payload_var,
                 },
-            });
+            );
         }
         Expr::Tuple(elems) => {
             let payload = base::Expr::Tuple(
@@ -358,40 +367,33 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
                     .map(|elem| lower_expr(elem, stmts, lower))
                     .collect(),
             );
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: payload,
-            });
+            stmts.stmt(result.clone(), payload);
         }
         Expr::TupleAccess(tuple, field) => {
             let lowered_tuple = lower_expr(tuple.as_ref(), stmts, lower);
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: base::Expr::TupleAccess(lowered_tuple, *field),
-            });
+            stmts.stmt(
+                result.clone(),
+                base::Expr::TupleAccess(lowered_tuple, *field),
+            );
         }
         Expr::Enum { typ, tag, argument } => {
             let lowered_arg = lower_expr(argument.as_ref(), stmts, lower);
-            stmts.push(Stmt::Let {
-                var: result.clone(),
-                value: base::Expr::Enum {
+            stmts.stmt(
+                result.clone(),
+                base::Expr::Enum {
                     typ: typ.clone(),
                     tag: tag.clone(),
                     argument: lowered_arg,
                 },
-            });
+            );
         }
         Expr::Match { head, cases } => {
             let head_expr = lower_expr(head.as_ref(), stmts, lower);
             let lowered_cases = cases
                 .iter()
                 .map(|case| {
-                    let mut body = Vec::new();
+                    let mut body = BlockBuilder::default();
                     let case_result = lower_expr(&case.body, &mut body, lower);
-                    body.push(Stmt::Let {
-                        var: result.clone(),
-                        value: base::Expr::Variable(case_result),
-                    });
                     let binding = Variable::new(
                         case.binding.clone(),
                         lower_type(case.binding_type.as_ref().unwrap(), lower),
@@ -399,14 +401,17 @@ fn lower_expr(to_lower: &Expr, stmts: &mut Vec<Stmt>, lower: &mut Lower) -> Vari
                     base::MatchCase {
                         variant: case.variant.clone(),
                         binding,
-                        body,
+                        body: body.finish(case_result),
                     }
                 })
                 .collect();
-            stmts.push(Stmt::Match {
-                head: head_expr,
-                cases: lowered_cases,
-            });
+            stmts.stmt(
+                result.clone(),
+                base::Expr::Match {
+                    head: head_expr,
+                    cases: lowered_cases,
+                },
+            );
         }
     }
     result

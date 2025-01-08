@@ -13,8 +13,7 @@ pub struct Program {
 pub struct Function {
     pub name: Identifier,
     pub arguments: Vec<Variable>,
-    pub body: Vec<Stmt>,
-    pub result: Variable,
+    pub body: Block,
 }
 
 #[derive(Clone)]
@@ -44,18 +43,13 @@ pub struct Variable {
 #[derive(Clone)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
+    pub result: Variable,
 }
 
 #[derive(Clone)]
-pub enum Stmt {
-    Let {
-        var: Variable,
-        value: Expr,
-    },
-    Match {
-        head: Variable,
-        cases: Vec<MatchCase>,
-    },
+pub struct Stmt {
+    pub var: Variable,
+    pub value: Expr,
 }
 
 #[derive(Clone)]
@@ -73,13 +67,17 @@ pub enum Expr {
         tag: Identifier,
         argument: Variable,
     },
+    Match {
+        head: Variable,
+        cases: Vec<MatchCase>,
+    },
 }
 
 #[derive(Clone)]
 pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Variable,
-    pub body: Vec<Stmt>,
+    pub body: Block,
 }
 
 impl Variable {
@@ -125,9 +123,15 @@ impl fmt::Display for Variable {
 }
 
 impl fmt::Debug for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.fmt(0, f)
+    }
+}
+
+impl Expr {
+    pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expr::Integer(int) => int.fmt(f),
+            Expr::Integer(int) => write!(f, "{int}"),
             Expr::Variable(name) => write!(f, "{name}"),
             Expr::DirectCall {
                 function,
@@ -148,7 +152,33 @@ impl fmt::Debug for Expr {
             Expr::Enum { typ, tag, argument } => {
                 write!(f, "{:?}::{:?}({})", typ, tag, argument)
             }
+            Expr::Match { head, cases } => {
+                writeln!(f, "match {} {{", head)?;
+                for case in cases {
+                    indent(ind + 1, f)?;
+                    write!(f, "{:?}({}) => ", case.variant, case.binding)?;
+                    case.body.fmt(ind + 2, f)?;
+                    writeln!(f, "")?;
+                }
+                indent(ind, f)?;
+                writeln!(f, "}}")
+            }
         }
+    }
+}
+
+impl Block {
+    pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{{\n")?;
+
+        for stmt in &self.stmts {
+            indent(ind + 1, f)?;
+            stmt.fmt(ind + 1, f)?;
+        }
+        indent(ind + 1, f)?;
+        writeln!(f, "return {};", self.result)?;
+        indent(ind, f)?;
+        write!(f, "}}")
     }
 }
 
@@ -156,12 +186,9 @@ impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "fn {:?}(", self.name)?;
         comma_list(f, &self.arguments)?;
-        writeln!(f, ") -> {:?} {{", self.result.typ)?;
-        for stmt in &self.body {
-            stmt.fmt(1, f)?;
-        }
-        indent(1, f)?;
-        writeln!(f, "return {};\n}}", self.result)
+        writeln!(f, ") -> {:?} ", self.body.result.typ)?;
+        self.body.fmt(0, f)?;
+        writeln!(f, "")
     }
 }
 
@@ -195,24 +222,9 @@ impl fmt::Debug for Stmt {
 impl Stmt {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         indent(ind, f)?;
-        match self {
-            Stmt::Let { var, value } => {
-                writeln!(f, "let {:?} = {:?};", var, value)
-            }
-            Stmt::Match { head, cases } => {
-                writeln!(f, "match {} {{", head)?;
-                for case in cases {
-                    indent(ind + 1, f)?;
-                    writeln!(f, "{:?}({}) => {{", case.variant, case.binding)?;
-                    for stmt in &case.body {
-                        stmt.fmt(ind + 2, f)?;
-                    }
-                    indent(ind + 1, f)?;
-                    writeln!(f, "}}")?;
-                }
-                writeln!(f, "}}")
-            }
-        }
+        write!(f, "let {:?} = ", self.var)?;
+        self.value.fmt(ind + 1, f)?;
+        writeln!(f, ";")
     }
 }
 

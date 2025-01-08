@@ -61,12 +61,7 @@ fn parse_error(text: &str, error: Simple<char>) {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        fs,
-        path::Path,
-        process::Command,
-        time::{Duration, Instant, SystemTime},
-    };
+    use std::{fs, path::Path, process::Command};
 
     use super::*;
 
