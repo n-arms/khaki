@@ -177,11 +177,11 @@ impl Expr {
                 for case in cases {
                     indent(ind + 1, f)?;
                     write!(f, "{:?}({}) => ", case.variant, case.binding)?;
-                    case.body.fmt(ind + 2, f)?;
+                    case.body.fmt(ind + 1, f)?;
                     writeln!(f)?;
                 }
                 indent(ind, f)?;
-                writeln!(f, "}}")
+                write!(f, "}}")
             }
         }
     }
@@ -192,7 +192,6 @@ impl Block {
         writeln!(f, "{{\n")?;
 
         for stmt in &self.stmts {
-            indent(ind + 1, f)?;
             stmt.fmt(ind + 1, f)?;
         }
         indent(ind + 1, f)?;
@@ -243,7 +242,7 @@ impl Stmt {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         indent(ind, f)?;
         write!(f, "let {:?} = ", self.var)?;
-        self.value.fmt(ind + 1, f)?;
+        self.value.fmt(ind, f)?;
         writeln!(f, ";")
     }
 }

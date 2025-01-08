@@ -108,7 +108,14 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
     let mut functions = Vec::new();
     let mut enums = Vec::new();
 
+    println!("lowering program with start");
+    for func in &to_lower.functions {
+        println!("{:?}", func);
+    }
+
     let pools: Vec<_> = lower.pools.iter().map(|(k, v)| (*k, v.clone())).collect();
+    println!("{:?}", pools);
+    println!("lowering program with end");
     for (token, lambda_struct) in pools {
         let cases = lambda_struct
             .lambdas
@@ -233,6 +240,8 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         functions.push(lower_function(func, lower));
     }
 
+    remove_duplicates(&mut functions);
+
     for enum_def in to_lower.enums.values() {
         enums.push(lower_enum(enum_def, lower));
     }
@@ -253,6 +262,18 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
         functions,
         definitions,
     }
+}
+
+fn remove_duplicates(functions: &mut Vec<base::Function>) {
+    let mut seen = HashSet::new();
+    functions.retain(|func| {
+        if seen.contains(&func.name) {
+            false
+        } else {
+            seen.insert(func.name.clone());
+            true
+        }
+    });
 }
 
 fn lower_enum(to_lower: &Enum, lower: &mut Lower) -> base::Enum {

@@ -22,10 +22,7 @@ pub fn program(prog: &mut Program) -> base::Program {
 
     for func in prog.functions.iter_mut() {
         infer_function(func, env.clone(), &mut uf, &mut prog.enums);
-        println!("{:?}", func);
     }
-
-    println!("generated union find {:?}", uf);
 
     let functions = prog
         .functions
@@ -44,8 +41,6 @@ pub fn program(prog: &mut Program) -> base::Program {
             )
         })
         .collect();
-
-    println!("generated predfined functions {:?}", functions);
 
     let mut patcher = Patcher::new(uf, functions);
 

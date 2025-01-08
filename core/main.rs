@@ -30,9 +30,9 @@ fn main() {
 
             let c = gen_program(&base).generate();
 
-            println!("{}", c);
+            //println!("{}", c);
 
-            fs::write("./test.c", c).unwrap();
+            fs::write("./target/test.c", c).unwrap();
 
             text.clear();
         }
@@ -72,11 +72,11 @@ mod test {
         let data = codegen::gen_program(&base).generate();
         println!("{}", data);
         let name = format!("test{}", program.len());
-        let source = working
-            .as_ref()
-            .with_file_name(name.clone())
-            .with_extension(".c");
-        let binary = working.as_ref().with_file_name(name);
+        let mut source = working.as_ref().to_path_buf();
+        source.push(name.clone());
+        source.set_extension("c");
+        let mut binary = working.as_ref().to_path_buf();
+        binary.push(name.clone());
         fs::write(source.clone(), data).unwrap();
         assert!(Command::new("gcc")
             .arg("-o")
@@ -97,7 +97,7 @@ mod test {
 
     macro_rules! test_program {
         ($program:expr, $result:expr) => {{
-            let run_result = run_program($program, "./target");
+            let run_result = run_program($program, "./target/");
             if run_result != $result {
                 panic!(
                     "Test failed: program output {} != expected {}\n\n{}",
