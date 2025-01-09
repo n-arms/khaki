@@ -56,14 +56,14 @@ pub(crate) fn infer_function(
     mut env: HashMap<Identifier, Type>,
     uf: &mut UnionFind,
     enums: &mut collections::HashMap<Identifier, Enum>,
+    names: &mut Names,
 ) {
-    let mut names = Names::default();
     for mut arg in to_infer.arguments.iter().cloned() {
         update_type(&mut arg.typ, uf);
         env.insert(arg.name, arg.typ);
     }
     update_type(&mut to_infer.result, uf);
-    let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums, &mut names);
+    let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums, names);
 
     union_type(&body_typ, &to_infer.result, uf);
 
@@ -75,7 +75,7 @@ pub(crate) fn infer_function(
 }
 
 #[derive(Default)]
-struct Names {
+pub(crate) struct Names {
     next: usize,
 }
 
