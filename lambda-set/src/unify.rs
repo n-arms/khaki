@@ -31,11 +31,15 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
 }
 
 /// make the function sets unique in the given type
-fn update_type(typ: &mut Type, uf: &mut UnionFind) {
+pub(crate) fn update_type(typ: &mut Type, uf: &mut UnionFind) {
     match typ {
         Type::Integer => {}
         Type::Variable(_) => {}
-        Type::Function(_, _, set) => {
+        Type::Function(args, result, set) => {
+            for arg in args {
+                update_type(arg, uf);
+            }
+            update_type(result.as_mut(), uf);
             set.token = uf.token();
         }
         Type::Tuple(elems) => {
@@ -53,9 +57,6 @@ pub(crate) fn infer_function(
     uf: &mut UnionFind,
     enums: &mut collections::HashMap<Identifier, Enum>,
 ) {
-    for (_, typ) in env.iter_mut() {
-        update_type(typ, uf);
-    }
     for mut arg in to_infer.arguments.iter().cloned() {
         update_type(&mut arg.typ, uf);
         env.insert(arg.name, arg.typ);
@@ -68,6 +69,7 @@ pub(crate) fn infer_function(
     let Type::Function(_, env_res, _) = env[&to_infer.name].clone() else {
         unreachable!()
     };
+
     union_type(&body_typ, &env_res, uf);
 }
 
