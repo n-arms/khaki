@@ -1,6 +1,6 @@
 use crate::union_find::UnionFind;
 use im::HashMap;
-use ir::parsed::{Argument, Expr, Function, Identifier, Type};
+use ir::parsed::{Argument, Enum, Expr, Function, Identifier, Type};
 
 pub(crate) struct Patcher {
     pub uf: UnionFind,
@@ -45,7 +45,6 @@ impl Patcher {
     }
 
     fn append_pool(&mut self, mut root: usize, name: Identifier) {
-        println!("append pool {root} {}", name.name);
         root = self.root(root);
         let pool = self.pools.entry(root).or_default();
         if !pool.contains(&name) {
@@ -54,7 +53,6 @@ impl Patcher {
     }
 
     fn append_lambda(&mut self, lambda: Lambda) {
-        println!("append lambda {}", lambda.name.name);
         self.lambdas.insert(lambda.name.clone(), lambda);
     }
 
@@ -102,8 +100,13 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
     patch_type_uf(to_patch, &mut patcher.uf)
 }
 
+pub(crate) fn patch_enum(to_patch: &mut Enum, patcher: &mut Patcher) {
+    for (_, case) in to_patch.cases.iter_mut() {
+        patch_type(case, patcher);
+    }
+}
+
 fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
-    println!("{:?}", to_patch);
     match to_patch {
         Expr::Integer(_) => {}
         Expr::Variable { name, typ, .. } => {
@@ -131,7 +134,6 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             set,
             name,
         } => {
-            println!("visiting lambda {}", name.name);
             for arg in captures.iter_mut().chain(arguments.iter_mut()) {
                 patch_type(&mut arg.typ, patcher);
             }

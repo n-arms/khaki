@@ -165,10 +165,13 @@ fn infer_expr(
                 unreachable!()
             }
         }
-        Expr::Enum { typ, argument, .. } => {
-            let _arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
+        Expr::Enum { typ, tag, argument } => {
+            let arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
 
-            // TODO: check type of arg against enum def
+            let enum_def = enums[typ].clone();
+            let variant_typ = enum_def.variant_type(tag);
+
+            union_type(&arg_typ, variant_typ, uf);
 
             Type::Constructor(typ.clone())
         }
@@ -179,10 +182,6 @@ fn infer_expr(
             let Type::Constructor(enum_name) = head_typ else {
                 panic!()
             };
-            let enum_def = enums.get_mut(&enum_name).unwrap();
-            for (_, typ) in enum_def.cases.iter_mut() {
-                update_type(typ, uf);
-            }
             let enum_def = enums[&enum_name].clone();
             let case_typs: Vec<Type> = cases
                 .iter_mut()

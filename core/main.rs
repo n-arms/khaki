@@ -6,6 +6,8 @@ use parser::parse_program;
 
 use std::fs;
 use std::io::{self, BufRead};
+
+/*
 fn main() {
     let stdin = io::stdin();
     let mut text = String::new();
@@ -36,6 +38,35 @@ fn main() {
         text.push_str(&line);
         text.push('\n');
     }
+}
+*/
+fn main() {
+    let text = r#"
+        enum Thunk {
+            f(() -> Int)
+        }
+        fn main() -> Int = match <|Thunk::f([]() -> Int = 3), Thunk::f([]() -> Int = 4)|>.0 {
+            f(x) => x()
+        }
+    "#;
+    let parsed = match parse_program(&text) {
+        Ok(p) => p,
+        Err(errors) => {
+            for error in errors {
+                parse_error(&text, error);
+            }
+            return;
+        }
+    };
+    let mut flat = flatten::program(parsed);
+    let base = lambda_set::program(&mut flat);
+    println!("{:?}", base);
+
+    let c = gen_program(&base).generate();
+
+    //println!("{}", c);
+
+    fs::write("./target/test.c", c).unwrap();
 }
 
 fn parse_error(text: &str, error: Simple<char>) {
