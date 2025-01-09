@@ -9,7 +9,6 @@ pub(crate) struct Patcher {
     // 1-to-many mapping from the root lambda id to all of the relevant lambdas
     pub pools: HashMap<usize, Vec<Identifier>>,
     pub functions: HashMap<Identifier, Lambda>,
-    names: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -38,14 +37,7 @@ impl Patcher {
             lambdas: HashMap::new(),
             pools: HashMap::new(),
             functions: patched_functions,
-            names: 0,
         }
-    }
-
-    fn name(&mut self) -> Identifier {
-        let name = self.names;
-        self.names += 1;
-        Identifier::from(format!("Closure_{name}"))
     }
 
     fn root(&mut self, token: usize) -> usize {
@@ -53,11 +45,16 @@ impl Patcher {
     }
 
     fn append_pool(&mut self, mut root: usize, name: Identifier) {
+        println!("append pool {root} {}", name.name);
         root = self.root(root);
-        self.pools.entry(root).or_default().push(name);
+        let pool = self.pools.entry(root).or_default();
+        if !pool.contains(&name) {
+            pool.push(name);
+        }
     }
 
     fn append_lambda(&mut self, lambda: Lambda) {
+        println!("append lambda {}", lambda.name.name);
         self.lambdas.insert(lambda.name.clone(), lambda);
     }
 
@@ -106,6 +103,7 @@ fn patch_type(to_patch: &mut Type, patcher: &mut Patcher) {
 }
 
 fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
+    println!("{:?}", to_patch);
     match to_patch {
         Expr::Integer(_) => {}
         Expr::Variable { name, typ, .. } => {
@@ -133,13 +131,13 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             set,
             name,
         } => {
+            println!("visiting lambda {}", name.name);
             for arg in captures.iter_mut().chain(arguments.iter_mut()) {
                 patch_type(&mut arg.typ, patcher);
             }
 
             patch_type(result, patcher);
             patch_expr(body.as_mut(), patcher);
-            *name = patcher.name();
             set.token = patcher.root(set.token);
             patcher.append_pool(set.token, name.clone());
 
