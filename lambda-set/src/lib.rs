@@ -2,7 +2,7 @@ use im::HashMap;
 use ir::{base, parsed::Program};
 use lower::{lower_program, Lower};
 use patch::{patch_function, Lambda, Patcher};
-use unify::{infer_function, update_type};
+use unify::{infer_function, update_type, Names};
 use union_find::UnionFind;
 
 mod lower;
@@ -22,8 +22,9 @@ pub fn program(prog: &mut Program) -> base::Program {
         env.insert(func.name.clone(), typ);
     }
 
+    let mut names = Names::default();
     for func in prog.functions.iter_mut() {
-        infer_function(func, env.clone(), &mut uf, &mut prog.enums);
+        infer_function(func, env.clone(), &mut uf, &mut prog.enums, &mut names);
     }
 
     let functions = prog
