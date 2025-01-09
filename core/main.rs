@@ -4,10 +4,8 @@ use chumsky::error::Simple;
 use codegen::gen_program;
 use parser::parse_program;
 
-use std::{
-    fs,
-    io::{self, BufRead},
-};
+use std::fs;
+use std::io::{self, BufRead};
 
 fn main() {
     let stdin = io::stdin();

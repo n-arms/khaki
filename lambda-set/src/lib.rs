@@ -2,7 +2,7 @@ use im::HashMap;
 use ir::{base, parsed::Program};
 use lower::{lower_program, Lower};
 use patch::{patch_function, Lambda, Patcher};
-use unify::infer_function;
+use unify::{infer_function, update_type};
 use union_find::UnionFind;
 
 mod lower;
@@ -17,7 +17,9 @@ pub fn program(prog: &mut Program) -> base::Program {
     let mut uf = UnionFind::new();
 
     for func in prog.functions.iter() {
-        env.insert(func.name.clone(), func.typ(uf.token()));
+        let mut typ = func.typ(uf.token());
+        update_type(&mut typ, &mut uf);
+        env.insert(func.name.clone(), typ);
     }
 
     for func in prog.functions.iter_mut() {
