@@ -11,10 +11,10 @@ name = "khaki"
 members = [
   "ir",
   "parser",
+  "typer",
   "flatten",
   "codegen", 
-  "lambda-set"
-]
+  "lambda-set"]
 
 [dependencies]
 ir = { path = "ir" }
