@@ -247,4 +247,21 @@ mod test {
             14
         );
     }
+
+    #[test]
+    fn different_named_arguments() {
+        test_program!(
+            r#"
+                enum Bool {
+                    true(<||>),
+                    false(<||>)
+                }
+                fn main() -> Int = (match Bool::true(<||>) {
+                    true(x) => [](a: Int) -> Int = a,
+                    false(x) => [](b: Int) -> Int = b
+                })(15)
+            "#,
+            15
+        )
+    }
 }
