@@ -9,7 +9,6 @@ pub(crate) struct Patcher {
     // 1-to-many mapping from the root lambda id to all of the relevant lambdas
     pub pools: HashMap<usize, Vec<Identifier>>,
     pub functions: HashMap<Identifier, Lambda>,
-    names: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -38,14 +37,7 @@ impl Patcher {
             lambdas: HashMap::new(),
             pools: HashMap::new(),
             functions: patched_functions,
-            names: 0,
         }
-    }
-
-    fn name(&mut self) -> Identifier {
-        let name = self.names;
-        self.names += 1;
-        Identifier::from(format!("Closure_{name}"))
     }
 
     fn root(&mut self, token: usize) -> usize {
