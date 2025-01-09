@@ -1,7 +1,7 @@
 use im::HashMap;
 use ir::{base, parsed::Program};
 use lower::{lower_program, Lower};
-use patch::{patch_function, Lambda, Patcher};
+use patch::{patch_enum, patch_function, Lambda, Patcher};
 use unify::{infer_function, update_type, Names};
 use union_find::UnionFind;
 
@@ -16,6 +16,18 @@ pub fn program(prog: &mut Program) -> base::Program {
 
     let mut uf = UnionFind::new();
 
+    for (_, def) in prog.enums.iter_mut() {
+        for (_, case) in def.cases.iter_mut() {
+            update_type(case, &mut uf);
+        }
+    }
+
+    println!("<after updating enums>");
+    for def in &prog.enums {
+        println!("{:?}", def);
+    }
+    println!("</after updating enums>");
+
     for func in prog.functions.iter() {
         let mut typ = func.typ(uf.token());
         update_type(&mut typ, &mut uf);
@@ -26,6 +38,8 @@ pub fn program(prog: &mut Program) -> base::Program {
     for func in prog.functions.iter_mut() {
         infer_function(func, env.clone(), &mut uf, &mut prog.enums, &mut names);
     }
+
+    println!("finalized uf: {:?}", uf);
 
     let functions = prog
         .functions
@@ -46,6 +60,10 @@ pub fn program(prog: &mut Program) -> base::Program {
         .collect();
 
     let mut patcher = Patcher::new(uf, functions);
+
+    for (_, def) in &mut prog.enums {
+        patch_enum(def, &mut patcher);
+    }
 
     for func in &mut prog.functions {
         patch_function(func, &mut patcher);

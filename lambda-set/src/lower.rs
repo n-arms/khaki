@@ -108,14 +108,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
     let mut functions = Vec::new();
     let mut enums = Vec::new();
 
-    println!("lowering program with start");
-    for func in &to_lower.functions {
-        println!("{:?}", func);
-    }
-
     let pools: Vec<_> = lower.pools.iter().map(|(k, v)| (*k, v.clone())).collect();
-    println!("{:?}", pools);
-    println!("lowering program with end");
     for (token, lambda_struct) in pools {
         let cases = lambda_struct
             .lambdas

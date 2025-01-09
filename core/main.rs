@@ -6,6 +6,7 @@ use parser::parse_program;
 
 use std::fs;
 use std::io::{self, BufRead};
+
 fn main() {
     let stdin = io::stdin();
     let mut text = String::new();
@@ -262,6 +263,21 @@ mod test {
                 })(15)
             "#,
             15
+        )
+    }
+
+    #[test]
+    fn lambdas_in_enums() {
+        test_program!(
+            r#"
+                enum Thunk {
+                    f(() -> Int)
+                }
+                fn main() -> Int = match <|Thunk::f([]() -> Int = 16), Thunk::f([]() -> Int = 17)|>.0 {
+                    f(x) => x()
+                }       
+            "#,
+            16
         )
     }
 }
