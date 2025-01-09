@@ -57,12 +57,13 @@ pub(crate) fn infer_function(
     uf: &mut UnionFind,
     enums: &mut collections::HashMap<Identifier, Enum>,
 ) {
+    let mut names = Names::default();
     for mut arg in to_infer.arguments.iter().cloned() {
         update_type(&mut arg.typ, uf);
         env.insert(arg.name, arg.typ);
     }
     update_type(&mut to_infer.result, uf);
-    let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums);
+    let body_typ = infer_expr(&mut to_infer.body, env.clone(), uf, enums, &mut names);
 
     union_type(&body_typ, &to_infer.result, uf);
 
@@ -73,11 +74,25 @@ pub(crate) fn infer_function(
     union_type(&body_typ, &env_res, uf);
 }
 
+#[derive(Default)]
+struct Names {
+    next: usize,
+}
+
+impl Names {
+    fn closure(&mut self) -> Identifier {
+        let token = self.next;
+        self.next += 1;
+        Identifier::from(format!("Closure_{}", token))
+    }
+}
+
 fn infer_expr(
     to_infer: &mut Expr,
     env: HashMap<Identifier, Type>,
     uf: &mut UnionFind,
     enums: &mut collections::HashMap<Identifier, Enum>,
+    closures: &mut Names,
 ) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
@@ -97,13 +112,13 @@ fn infer_expr(
             arguments,
         } => {
             let Type::Function(env_args, env_res, env_set) =
-                infer_expr(function.as_mut(), env.clone(), uf, enums)
+                infer_expr(function.as_mut(), env.clone(), uf, enums, closures)
             else {
                 panic!()
             };
 
             for (arg, env_arg) in arguments.iter_mut().zip(env_args.iter()) {
-                let ty = infer_expr(arg, env.clone(), uf, enums);
+                let ty = infer_expr(arg, env.clone(), uf, enums, closures);
                 union_type(&ty, env_arg, uf);
             }
 
@@ -117,16 +132,17 @@ fn infer_expr(
             result,
             body,
             set,
-            ..
+            name,
         } => {
             update_type(result, uf);
             set.token = uf.token();
+            *name = closures.closure();
             let mut inner = env.clone();
             for arg in arguments.iter_mut().chain(captures.iter_mut()) {
                 update_type(&mut arg.typ, uf);
                 inner.insert(arg.name.clone(), arg.typ.clone());
             }
-            let inferred_result = infer_expr(body.as_mut(), inner, uf, enums);
+            let inferred_result = infer_expr(body.as_mut(), inner, uf, enums, closures);
             union_type(result, &inferred_result, uf);
 
             let arg_types = arguments.iter().map(|arg| arg.typ.clone()).collect();
@@ -136,12 +152,12 @@ fn infer_expr(
         Expr::Tuple(elems) => {
             let typs = elems
                 .iter_mut()
-                .map(|elem| infer_expr(elem, env.clone(), uf, enums))
+                .map(|elem| infer_expr(elem, env.clone(), uf, enums, closures))
                 .collect();
             Type::Tuple(typs)
         }
         Expr::TupleAccess(tuple, field) => {
-            let tuple_typ = infer_expr(tuple.as_mut(), env, uf, enums);
+            let tuple_typ = infer_expr(tuple.as_mut(), env, uf, enums, closures);
 
             if let Type::Tuple(elems) = tuple_typ {
                 elems[*field].clone()
@@ -150,14 +166,14 @@ fn infer_expr(
             }
         }
         Expr::Enum { typ, argument, .. } => {
-            let _arg_typ = infer_expr(argument.as_mut(), env, uf, enums);
+            let _arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
 
             // TODO: check type of arg against enum def
 
             Type::Constructor(typ.clone())
         }
         Expr::Match { head, cases } => {
-            let head_typ = infer_expr(head.as_mut(), env.clone(), uf, enums);
+            let head_typ = infer_expr(head.as_mut(), env.clone(), uf, enums, closures);
             // TODO: check head type against the patterns being matched
 
             let Type::Constructor(enum_name) = head_typ else {
@@ -175,7 +191,7 @@ fn infer_expr(
                     let typ = enum_def.variant_type(&case.variant);
                     inner.insert(case.binding.clone(), typ.clone());
                     case.binding_type = Some(typ.clone());
-                    infer_expr(&mut case.body, inner, uf, enums)
+                    infer_expr(&mut case.body, inner, uf, enums, closures)
                 })
                 .collect();
             for window in case_typs.windows(2) {
