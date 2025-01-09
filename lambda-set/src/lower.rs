@@ -150,6 +150,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                     typ: lower_type(&arg.typ, lower),
                 })
                 .collect();
+            let case_call_args = arguments.clone();
             arguments.push(func_name.clone());
             let mut body = BlockBuilder::default();
             let result_typ = lower_type(&lambda_struct.lambdas[0].result, lower);
@@ -171,11 +172,7 @@ pub(crate) fn lower_program(to_lower: &Program, lower: &mut Lower) -> base::Prog
                     );
                     let payload_var = lower.fresh_var(payload_typ);
 
-                    let mut call_args: Vec<_> = lambda
-                        .arguments
-                        .iter()
-                        .map(|arg| Variable::new(arg.name.clone(), lower_type(&arg.typ, lower)))
-                        .collect();
+                    let mut call_args = case_call_args.clone();
 
                     for (i, cap) in lambda.captures.iter().enumerate() {
                         let var_typ = lower_type(&cap.typ, lower);
