@@ -1,3 +1,10 @@
+mod expr;
+mod lexer;
+mod parser;
+mod pattern;
+mod program;
+mod typ;
+
 macro_rules! parser {
     ($t:ty) => {
         impl Parser<char, $t, Error = Simple<char>> + Clone
