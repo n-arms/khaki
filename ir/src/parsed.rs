@@ -26,7 +26,11 @@ pub struct Identifier {
 }
 
 #[derive(Clone)]
-pub struct Span {}
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+    pub text: String,
+}
 
 #[derive(Clone)]
 pub struct Enum {
@@ -124,6 +128,12 @@ enum RawVariableCell {
 impl Identifier {
     pub fn new(name: hir::Identifier, span: Span) -> Self {
         Self { name, span }
+    }
+}
+
+impl Span {
+    pub fn dummy() -> Self {
+        todo!()
     }
 }
 

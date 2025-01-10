@@ -1,8 +1,8 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, hash};
 
 use crate::parsed::Span;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Kind {
     LeftParen,
     RightParen,
@@ -19,12 +19,37 @@ pub enum Kind {
     Match,
     ThinArrow,
     ThickArrow,
+    Equals,
 }
 
 #[derive(Clone)]
 pub struct Token {
     pub kind: Kind,
     pub span: Span,
+}
+
+impl Kind {
+    pub fn dummy(self) -> Token {
+        Token {
+            kind: self,
+            span: Span::dummy(),
+        }
+    }
+}
+
+impl From<Kind> for Token {
+    fn from(kind: Kind) -> Self {
+        Self {
+            kind,
+            span: Span::dummy(),
+        }
+    }
+}
+
+impl hash::Hash for Token {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.kind.hash(state)
+    }
 }
 
 impl PartialEq for Token {
