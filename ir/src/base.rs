@@ -1,5 +1,5 @@
-use crate::parsed::comma_list;
-pub use crate::parsed::Identifier;
+use crate::hir::comma_list;
+pub use crate::hir::Identifier;
 use std::fmt;
 
 #[derive(Clone)]
@@ -247,7 +247,7 @@ impl Stmt {
     }
 }
 
-fn indent(ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
+pub(crate) fn indent(ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
     for _ in 0..ind {
         write!(f, "  ")?;
     }

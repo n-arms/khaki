@@ -1,5 +1,5 @@
 use im::HashMap;
-use ir::{base, parsed::Program};
+use ir::{base, hir::Program};
 use lower::{lower_program, Lower};
 use patch::{patch_enum, patch_function, Lambda, Patcher};
 use unify::{infer_function, update_type, Names};

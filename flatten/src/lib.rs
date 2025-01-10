@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Argument, Expr, Function, Identifier, MatchCase, Program, Type};
+use ir::hir::{Argument, Expr, Function, Identifier, MatchCase, Program, Type};
 
 #[derive(Clone, Default)]
 pub struct Env {

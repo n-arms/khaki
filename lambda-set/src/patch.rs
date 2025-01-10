@@ -1,6 +1,6 @@
 use crate::union_find::UnionFind;
 use im::HashMap;
-use ir::parsed::{Argument, Enum, Expr, Function, Identifier, Type};
+use ir::hir::{Argument, Enum, Expr, Function, Identifier, Type};
 
 pub(crate) struct Patcher {
     pub uf: UnionFind,

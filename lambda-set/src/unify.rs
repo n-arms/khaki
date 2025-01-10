@@ -2,7 +2,7 @@ use std::collections;
 
 use crate::union_find::UnionFind;
 use im::HashMap;
-use ir::parsed::{Enum, Expr, Function, Identifier, Type};
+use ir::hir::{Enum, Expr, Function, Identifier, Type};
 
 fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
     use Type::*;

@@ -2,7 +2,7 @@ use crate::order;
 use crate::patch::Lambda;
 use im::{HashMap, HashSet};
 use ir::base::{self, Stmt, Variable};
-use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
+use ir::hir::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
 #[derive(Clone, Debug)]
 pub(crate) struct LambdaStruct {

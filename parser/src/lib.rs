@@ -10,7 +10,7 @@ use chumsky::{
     text::{int, keyword, whitespace},
     Parser,
 };
-use ir::parsed::*;
+use ir::hir::*;
 
 fn pad<T>(inner: parser!(T)) -> parser!(T) {
     whitespace().ignore_then(inner).then_ignore(whitespace())
