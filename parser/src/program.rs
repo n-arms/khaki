@@ -1,4 +1,11 @@
-use crate::parser::parser;
+use crate::{
+    expr::{expr, typ},
+    parser::{
+        brace_list_in, identifier, paren_list, paren_list_in, parser, square_list, token,
+        tuple_list_in, upper_identifier, Env,
+    },
+    pattern::pattern,
+};
 
 use chumsky::{
     prelude::Simple,
@@ -8,43 +15,15 @@ use chumsky::{
     Parser,
 };
 
-use ir::token::{Kind, Token};
+use ir::{
+    parsed::{Argument, Enum, EnumCase, Function, Program, Type, VariableCell},
+    token::{Kind, Token},
+};
 
-fn function() -> parser!(Function) {
-    pad(keyword("fn")
-        .ignore_then(identifier())
-        .then(
-            just('[')
-                .ignore_then(comma_list(identifier()))
-                .then_ignore(just(']'))
-                .or_not()
-                .map(|generics| generics.unwrap_or_default()),
-        )
-        .then_ignore(whitespace())
-        .then(
-            just('(')
-                .ignore_then(comma_list(argument()))
-                .then_ignore(just(')')),
-        )
-        .then_ignore(whitespace())
-        .then_ignore(just('-'))
-        .then_ignore(just('>'))
-        .then(typ())
-        .then_ignore(just('='))
-        .then(expr())
-        .map(|((((name, generics), arguments), result), body)| Function {
-            name,
-            arguments,
-            generics,
-            result,
-            body,
-        }))
-}
-
-fn program() -> parser!(Program) {
-    enum_def()
+pub(crate) fn program<'a>(env: &'a Env) -> parser!('a, Program) {
+    enum_def(env)
         .repeated()
-        .then(function().repeated())
+        .then(function(env).repeated())
         .then_ignore(end())
         .map(|(enum_defs, functions)| {
             let enums = enum_defs.into_iter().map(|e| (e.name.clone(), e)).collect();
@@ -52,43 +31,55 @@ fn program() -> parser!(Program) {
         })
 }
 
-fn enum_def() -> parser!(Enum) {
-    pad(keyword("enum")
-        .ignore_then(upper_identifier())
-        .then_ignore(just('{'))
-        .then(comma_list(
-            identifier()
-                .then_ignore(just('('))
-                .then(typ())
-                .then_ignore(just(')')),
+fn function<'a>(env: &'a Env) -> parser!('a, Function) {
+    token(Kind::Fn)
+        .then(identifier(env))
+        .then(
+            square_list(identifier(env))
+                .or_not()
+                .map(Option::unwrap_or_default),
+        )
+        .then(paren_list(argument(env)))
+        .then_ignore(token(Kind::ThinArrow))
+        .then(typ(env))
+        .then_ignore(token(Kind::Equals))
+        .then(expr(env))
+        .map(
+            |(((((start, name), generics), arguments), result), body)| Function {
+                span: start.span.merge(body.span()),
+                name,
+                arguments,
+                generics,
+                result,
+                body,
+            },
+        )
+}
+
+fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
+    token(Kind::Enum)
+        .then(upper_identifier(env))
+        .then(brace_list_in(
+            identifier(env)
+                .then_ignore(token(Kind::LeftParen))
+                .then(typ(env))
+                .then(token(Kind::RightParen))
+                .map(|((tag, typ), end)| EnumCase {
+                    span: tag.span.merge(end.span),
+                    tag,
+                    typ,
+                }),
         ))
-        .then_ignore(just('}')))
-    .map(|(name, cases)| Enum { name, cases })
+        .map(|((start, name), (end, cases))| Enum {
+            name,
+            cases,
+            span: start.span.merge(end),
+        })
 }
 
-fn argument() -> parser!(Argument) {
-    pad(identifier().then_ignore(just(':')).then(typ())).map(|(name, typ)| Argument { name, typ })
-}
-
-fn typ() -> parser!(Type) {
-    recursive::recursive(|typ| {
-        let int = keyword("Int").map(|_| Type::Integer);
-        let var = identifier().map(Type::Variable);
-        let cons = upper_identifier().map(Type::Constructor);
-        let func = just('(')
-            .ignore_then(comma_list(typ.clone()))
-            .then_ignore(just(')'))
-            .then_ignore(whitespace())
-            .then_ignore(just('-'))
-            .then_ignore(just('>'))
-            .then(typ.clone())
-            .map(|(args, result)| Type::Function(args, Box::new(result), LambdaSet::dummy()));
-        let tuple = just('<')
-            .ignore_then(just('|'))
-            .ignore_then(comma_list(typ.clone()))
-            .then_ignore(just('|'))
-            .then_ignore(just('>'))
-            .map(Type::Tuple);
-        pad(func.or(int).or(var).or(tuple).or(cons))
-    })
+fn argument<'a>(env: &'a Env) -> parser!('a, Argument) {
+    pattern(env)
+        .then_ignore(token(Kind::Colon))
+        .then(typ(env))
+        .map(|(binding, typ)| Argument { typ, binding })
 }

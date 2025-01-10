@@ -1,109 +1,139 @@
-fn expr() -> parser!(Expr) {
+use crate::{
+    parser::{
+        brace_list_in, identifier, paren_list, paren_list_in, parser, square_list_in, token,
+        tuple_list_in, upper_identifier, Env,
+    },
+    pattern::pattern,
+};
+
+use chumsky::{
+    prelude::Simple,
+    primitive::{end, filter, just},
+    recursive::{self, Recursive},
+    text::{int, keyword, whitespace},
+    Parser,
+};
+use ir::{
+    parsed::{ClosureArgument, Expr, MatchCase, Type, VariableCell},
+    token::Kind,
+};
+
+pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
     let mut expr = Recursive::declare();
-    let integer = int(10).map(|i: String| Expr::Integer(i.parse().unwrap()));
-    let variable = identifier()
-        .then(
-            just('[')
-                .ignore_then(comma_list(typ()))
-                .then_ignore(just(']'))
-                .or_not(),
-        )
-        .map(|(name, generics)| Expr::Variable {
-            name,
-            typ: None,
-            generics: generics.unwrap_or_default(),
-        });
-    let function = just('[')
-        .ignore_then(comma_list(argument()))
-        .then_ignore(just(']'))
-        .then_ignore(whitespace())
-        .then_ignore(just('('))
-        .then(comma_list(argument()))
-        .then_ignore(just(')'))
-        .then_ignore(whitespace())
-        .then_ignore(just('-'))
-        .then_ignore(just('>'))
-        .then_ignore(whitespace())
-        .then(typ())
-        .then_ignore(whitespace())
-        .then_ignore(just('='))
+    let integer =
+        token(Kind::Integer).map(|token| Expr::Integer(env[token].parse().unwrap(), token.span));
+    let variable = identifier(env).map(Expr::Variable);
+    let function = square_list_in(identifier(env))
+        .then(paren_list(closure_argument(env)))
+        .then(token(Kind::ThinArrow).ignore_then(typ(env)).or_not())
+        .then_ignore(token(Kind::Equals))
         .then(expr.clone())
-        .map(|(((captures, arguments), result), body)| Expr::Function {
-            captures,
-            arguments,
-            result,
-            body: Box::new(body),
-            set: LambdaSet::dummy(),
-            name: Identifier::dummy(),
-        });
-    let tuple = just('<')
-        .ignore_then(just('|'))
-        .ignore_then(comma_list(expr.clone()))
-        .then_ignore(just('|'))
-        .then_ignore(just('>'))
-        .map(Expr::Tuple);
-    let variant = upper_identifier()
-        .then_ignore(just(':'))
-        .then_ignore(just(':'))
-        .then(identifier())
-        .then_ignore(just('('))
+        .map(
+            |((((start, captures), arguments), result), body): (_, Expr)| Expr::Function {
+                captures,
+                arguments,
+                result,
+                set: env.lambda_set(),
+                name: env.name("Closure", start.merge(body.span())),
+                span: start.merge(body.span()),
+                body: Box::new(body),
+            },
+        );
+    let tuple = tuple_list_in(expr.clone()).map(|(span, list)| Expr::Tuple(list, span));
+    let variant = upper_identifier(env)
+        .then_ignore(token(Kind::DoubleColon))
+        .then(identifier(env))
+        .then_ignore(token(Kind::LeftParen))
         .then(expr.clone())
-        .then_ignore(just(')'))
-        .map(|((typ, tag), argument)| Expr::Enum {
-            typ,
+        .then(token(Kind::RightParen))
+        .map(|(((typ, tag), argument), end)| Expr::Enum {
             tag,
             argument: Box::new(argument),
+            span: typ.span.merge(end.span),
+            typ,
         });
-    let match_ = keyword("match")
-        .ignore_then(expr.clone())
-        .then_ignore(just('{'))
-        .then(comma_list(
-            identifier()
-                .then_ignore(just('('))
-                .then(identifier())
-                .then_ignore(just(')'))
-                .then_ignore(whitespace())
-                .then_ignore(just('='))
-                .then_ignore(just('>'))
-                .then(expr.clone())
-                .map(|((variant, binding), body)| MatchCase {
-                    variant,
-                    binding,
-                    binding_type: None,
-                    body,
-                }),
-        ))
-        .then_ignore(just('}'))
-        .map(|(head, cases)| Expr::Match {
+    let match_case = identifier(env)
+        .then_ignore(token(Kind::LeftParen))
+        .then(pattern(env))
+        .then_ignore(token(Kind::RightParen))
+        .then_ignore(token(Kind::ThickArrow))
+        .then(expr.clone())
+        .map(|((variant, binding), body)| MatchCase {
+            span: variant.span.merge(body.span()),
+            variant,
+            binding,
+            body,
+        });
+    let match_ = token(Kind::Match)
+        .then(expr.clone())
+        .then(brace_list_in(match_case))
+        .map(|((start, head), (end, cases))| Expr::Match {
             head: Box::new(head),
             cases,
+            span: start.span.merge(end),
         });
-    let parens = just('(').ignore_then(expr.clone()).then_ignore(just(')'));
-    let access = pad(just('.').ignore_then(whitespace()).ignore_then(int(10)));
-    let call = pad(just('(')
-        .ignore_then(comma_list(expr.clone()))
-        .then_ignore(just(')')));
+    let parens = token(Kind::LeftParen)
+        .ignore_then(expr.clone())
+        .then_ignore(token(Kind::RightParen));
+    let access = token(Kind::Period).ignore_then(token(Kind::Integer));
+    let call = paren_list_in(expr.clone());
 
     let addon = access.map(Ok).or(call.map(Err));
-    let trivial = pad(integer
+    let trivial = integer
         .or(match_)
         .or(variant)
         .or(variable)
         .or(function)
         .or(tuple)
-        .or(parens));
+        .or(parens);
 
     expr.define(
         trivial
             .then(addon.repeated())
             .foldl(|expr, addon| match addon {
-                Ok(field) => Expr::TupleAccess(Box::new(expr), field.parse().unwrap()),
-                Err(arguments) => Expr::FunctionCall {
-                    function: Box::new(expr),
-                    set: LambdaSet::dummy(),
+                Ok(field) => {
+                    let span = expr.span().merge(field.span);
+                    Expr::TupleAccess(Box::new(expr), env[field].parse().unwrap(), span)
+                }
+                Err((span, arguments)) => Expr::FunctionCall {
+                    set: env.lambda_set(),
                     arguments,
+                    span: expr.span().merge(span),
+                    function: Box::new(expr),
                 },
             }),
     );
     expr
+}
+
+fn closure_argument<'a>(env: &'a Env) -> parser!('a, ClosureArgument) {
+    pattern(env)
+        .then(token(Kind::Colon).ignore_then(typ(env)).or_not())
+        .map(|(binding, typ)| ClosureArgument {
+            span: if let Some(typ) = typ.as_ref() {
+                binding.span().merge(typ.span())
+            } else {
+                binding.span()
+            },
+            typ,
+            binding,
+        })
+}
+
+pub(crate) fn typ<'a>(env: &'a Env) -> parser!('a, Type) {
+    recursive::recursive(|typ| {
+        let int = token(Kind::Int).map(|token| Type::Integer(token.span));
+        let var = identifier(env).map(|name| Type::Variable(VariableCell::new(name)));
+        let cons = upper_identifier(env).map(Type::Constructor);
+        let func = paren_list_in(typ.clone())
+            .then_ignore(token(Kind::ThinArrow))
+            .then(typ.clone())
+            .map(|((start, args), result): (_, Type)| {
+                let span = start.merge(result.span());
+                Type::Function(args, Box::new(result), env.lambda_set(), span)
+            });
+        let tuple = tuple_list_in(typ.clone()).map(|(span, list)| Type::Tuple(list, span));
+
+        func.or(int).or(var).or(tuple).or(cons)
+    })
 }

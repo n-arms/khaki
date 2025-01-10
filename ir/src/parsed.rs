@@ -1,4 +1,12 @@
-use std::{cell::RefCell, fmt, ops::Deref, rc::Rc};
+use std::{
+    borrow::Borrow,
+    cell::RefCell,
+    cmp::Ordering,
+    collections::HashMap,
+    fmt, hash,
+    ops::{Deref, RangeInclusive},
+    rc::Rc,
+};
 
 pub use crate::hir::{self, LambdaSet};
 use crate::{base::indent, hir::comma_list};
@@ -6,7 +14,7 @@ use crate::{base::indent, hir::comma_list};
 #[derive(Clone)]
 pub struct Program {
     pub functions: Vec<Function>,
-    pub enums: Vec<Enum>,
+    pub enums: HashMap<Identifier, Enum>,
 }
 
 #[derive(Clone)]
@@ -22,20 +30,20 @@ pub struct Function {
 #[derive(Clone)]
 pub struct Identifier {
     name: hir::Identifier,
-    span: Span,
+    pub span: Span,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
-    pub text: String,
 }
 
 #[derive(Clone)]
 pub struct Enum {
     pub name: Identifier,
     pub cases: Vec<EnumCase>,
+    pub span: Span,
 }
 
 #[derive(Clone)]
@@ -49,13 +57,12 @@ pub struct EnumCase {
 pub struct Argument {
     pub binding: Pattern,
     pub typ: Type,
-    pub span: Span,
 }
 
 #[derive(Clone)]
 pub enum Expr {
     Integer(i32, Span),
-    Variable(Identifier, Span),
+    Variable(Identifier),
     FunctionCall {
         function: Box<Expr>,
         set: LambdaSet,
@@ -68,7 +75,7 @@ pub enum Expr {
         result: Option<Type>,
         body: Box<Expr>,
         set: LambdaSet,
-        name: hir::Identifier,
+        name: Identifier,
         span: Span,
     },
     Tuple(Vec<Expr>, Span),
@@ -98,6 +105,7 @@ pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Pattern,
     pub body: Expr,
+    pub span: Span,
 }
 
 #[derive(Clone)]
@@ -109,10 +117,10 @@ pub enum Pattern {
 #[derive(Clone)]
 pub enum Type {
     Integer(Span),
-    Variable(VariableCell, Span),
+    Variable(VariableCell),
     Function(Vec<Type>, Box<Type>, LambdaSet, Span),
     Tuple(Vec<Type>, Span),
-    Constructor(Identifier, Span),
+    Constructor(Identifier),
 }
 
 #[derive(Clone)]
@@ -126,14 +134,50 @@ enum RawVariableCell {
 }
 
 impl Identifier {
-    pub fn new(name: hir::Identifier, span: Span) -> Self {
-        Self { name, span }
+    pub fn new(name: String, span: Span) -> Self {
+        Self {
+            name: hir::Identifier::from(name),
+            span,
+        }
     }
 }
 
 impl Span {
+    /*
     pub fn dummy() -> Self {
         todo!()
+    }
+
+    pub fn range(self) -> RangeInclusive<usize> {
+        self.start..=self.end
+    }
+
+    pub fn merge(self, other: Self) -> Self {
+        Self {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+}
+
+impl Pattern {
+    pub fn span(&self) -> Span {
+        match self {
+            Pattern::Variable(name) => name.span,
+            Pattern::Tuple(_, span) => *span,
+        }
+    }
+}
+
+impl Type {
+    pub fn span(&self) -> Span {
+        match self {
+            Type::Integer(span) => *span,
+            Type::Variable(name) => name.span(),
+            Type::Function(_, _, _, span) => *span,
+            Type::Tuple(_, span) => *span,
+            Type::Constructor(name) => name.span,
+        }
     }
 }
 
@@ -147,6 +191,13 @@ impl VariableCell {
     pub fn set(&self, typ: Type) {
         *self.inner.as_ref().borrow_mut() = RawVariableCell::Type(typ)
     }
+
+    pub fn span(&self) -> Span {
+        match self.inner.as_ref().borrow().deref() {
+            RawVariableCell::Variable(name) => name.span,
+            RawVariableCell::Type(typ) => typ.span(),
+        }
+    }
 }
 
 impl fmt::Debug for Identifier {
@@ -159,7 +210,7 @@ impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Integer(_) => write!(f, "Int"),
-            Type::Variable(name, _) => match name.inner.as_ref().borrow().deref() {
+            Type::Variable(name) => match name.inner.as_ref().borrow().deref() {
                 RawVariableCell::Variable(name) => name.fmt(f),
                 RawVariableCell::Type(typ) => typ.fmt(f),
             },
@@ -173,7 +224,7 @@ impl fmt::Debug for Type {
                 comma_list(f, elems)?;
                 write!(f, ")")
             }
-            Type::Constructor(name, _) => name.fmt(f),
+            Type::Constructor(name) => name.fmt(f),
         }
     }
 }
@@ -211,7 +262,7 @@ impl Expr {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Integer(int, _) => write!(f, "{int}"),
-            Expr::Variable(name, _) => write!(f, "{:?}", name),
+            Expr::Variable(name) => write!(f, "{:?}", name),
             Expr::FunctionCall {
                 function,
                 set,
@@ -300,6 +351,45 @@ impl Expr {
             }
         }
     }
+
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::Integer(_, span) => *span,
+            Expr::Variable(name) => name.span,
+            Expr::FunctionCall { span, .. } => *span,
+            Expr::Function { span, .. } => *span,
+            Expr::Tuple(_, span) => *span,
+            Expr::TupleAccess(_, _, span) => *span,
+            Expr::Enum { span, .. } => *span,
+            Expr::Match { span, .. } => *span,
+        }
+    }
+}
+
+impl hash::Hash for Identifier {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
+    }
+}
+
+impl Eq for Identifier {}
+
+impl PartialOrd for Identifier {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Identifier {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
 }
 
 impl fmt::Debug for Function {
@@ -328,5 +418,17 @@ impl fmt::Debug for Enum {
 impl fmt::Debug for EnumCase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}({:?})", self.tag, self.typ)
+    }
+}
+
+impl fmt::Debug for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for def in self.enums.values() {
+            writeln!(f, "{:?}", def)?;
+        }
+        for func in &self.functions {
+            writeln!(f, "{:?}", func)?;
+        }
+        Ok(())
     }
 }

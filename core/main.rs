@@ -2,6 +2,7 @@
 
 use chumsky::error::Simple;
 use codegen::gen_program;
+use ir::token::Token;
 use parser::parse_program;
 
 use std::fs;
@@ -13,15 +14,21 @@ fn main() {
     for line in stdin.lock().lines() {
         let line = line.unwrap();
         if line.is_empty() {
-            let parsed = match parse_program(&text) {
+            let parse_env = parser::Env::new(text.clone());
+            let parsed = match parse_program(&parse_env) {
                 Ok(p) => p,
-                Err(errors) => {
+                Err(parser::Error::LexingFailed) => {
+                    return;
+                }
+                Err(parser::Error::ParseError(errors)) => {
                     for error in errors {
                         parse_error(&text, error);
                     }
                     return;
                 }
             };
+            println!("{:?}", parsed);
+            /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);
             println!("{:?}", base);
@@ -31,7 +38,7 @@ fn main() {
             //println!("{}", c);
 
             fs::write("./target/test.c", c).unwrap();
-
+            */
             text.clear();
         }
         text.push_str(&line);
@@ -39,7 +46,7 @@ fn main() {
     }
 }
 
-fn parse_error(text: &str, error: Simple<char>) {
+fn parse_error(text: &str, error: Simple<Token>) {
     use ariadne::*;
     Report::build(ReportKind::Error, error.span())
         .with_message("Parse error")

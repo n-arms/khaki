@@ -10,6 +10,8 @@ pub enum Kind {
     RightBrace,
     LeftSquare,
     RightSquare,
+    LeftTuple,
+    RightTuple,
     Integer,
     UpperIdentifier,
     LowerIdentifier,
@@ -17,12 +19,16 @@ pub enum Kind {
     Period,
     Fn,
     Match,
+    Enum,
+    Int,
     ThinArrow,
     ThickArrow,
     Equals,
+    Colon,
+    DoubleColon,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Token {
     pub kind: Kind,
     pub span: Span,
@@ -84,6 +90,8 @@ impl fmt::Debug for Kind {
                 Kind::RightBrace => "}",
                 Kind::LeftSquare => "[",
                 Kind::RightSquare => "]",
+                Kind::LeftTuple => "<|",
+                Kind::RightTuple => "|>",
                 Kind::Integer => "%int%",
                 Kind::UpperIdentifier => "%Id%",
                 Kind::LowerIdentifier => "%id%",
@@ -91,8 +99,13 @@ impl fmt::Debug for Kind {
                 Kind::Period => ".",
                 Kind::Fn => "fn",
                 Kind::Match => "match",
+                Kind::Enum => "enum",
+                Kind::Int => "Int",
                 Kind::ThinArrow => "->",
                 Kind::ThickArrow => "=>",
+                Kind::Equals => "=",
+                Kind::Colon => ":",
+                Kind::DoubleColon => "::",
             }
         )
     }
