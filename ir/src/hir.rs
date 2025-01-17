@@ -176,6 +176,18 @@ impl LambdaSet {
     }
 }
 
+impl Into<usize> for LambdaSet {
+    fn into(self) -> usize {
+        self.token
+    }
+}
+
+impl From<usize> for LambdaSet {
+    fn from(value: usize) -> Self {
+        Self::new(value)
+    }
+}
+
 /*
 rules for lambda inference: every variable/expression that has a function type also has an associated lambda set.
 initially each lambda set is just an unbound variable. in addition, we have accumulated some constraints, where each constraint

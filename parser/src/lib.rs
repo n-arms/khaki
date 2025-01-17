@@ -9,6 +9,7 @@ mod parser;
 mod pattern;
 mod program;
 
+#[derive(Debug)]
 pub enum Error {
     LexingFailed,
     ParseError(Vec<Simple<Token>>),
@@ -17,6 +18,14 @@ pub enum Error {
 pub fn parse_program(env: &Env) -> Result<Program, Error> {
     let text = &env.text;
     let tokens = lex_program(text)?;
+    println!("{:?}", tokens);
+    for token in &tokens {
+        println!(
+            "{:?} {:?}",
+            token.kind,
+            &text[token.span.start..=token.span.end]
+        )
+    }
     program::program(env)
         .parse(tokens)
         .map_err(Error::ParseError)

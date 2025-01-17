@@ -20,8 +20,10 @@ use ir::{
 
 pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
     let mut expr = Recursive::declare();
-    let integer =
-        token(Kind::Integer).map(|token| Expr::Integer(env[token].parse().unwrap(), token.span));
+    let integer = token(Kind::Integer).map(|token| {
+        println!("{:?} and {:?}", &env[token], token);
+        Expr::Integer(env[token].parse().unwrap(), token.span)
+    });
     let variable = identifier(env).map(Expr::Variable);
     let function = square_list_in(identifier(env))
         .then(paren_list(closure_argument(env)))

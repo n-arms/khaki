@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    cell::RefCell,
+    cell::{Ref, RefCell},
     cmp::Ordering,
     collections::HashMap,
     fmt, hash,
@@ -24,12 +24,13 @@ pub struct Function {
     pub generics: Vec<Identifier>,
     pub result: Type,
     pub body: Expr,
+    pub set: LambdaSet,
     pub span: Span,
 }
 
 #[derive(Clone)]
 pub struct Identifier {
-    name: hir::Identifier,
+    pub name: hir::Identifier,
     pub span: Span,
 }
 
@@ -42,6 +43,7 @@ pub struct Span {
 #[derive(Clone)]
 pub struct Enum {
     pub name: Identifier,
+    pub generics: Vec<Identifier>,
     pub cases: Vec<EnumCase>,
     pub span: Span,
 }
@@ -62,7 +64,7 @@ pub struct Argument {
 #[derive(Clone)]
 pub enum Expr {
     Integer(i32, Span),
-    Variable(Identifier),
+    Variable(Identifier, Option<Type>),
     FunctionCall {
         function: Box<Expr>,
         set: LambdaSet,
@@ -110,17 +112,17 @@ pub struct MatchCase {
 
 #[derive(Clone)]
 pub enum Pattern {
-    Variable(Identifier),
+    Variable(Identifier, Option<Type>),
     Tuple(Vec<Pattern>, Span),
 }
-
 #[derive(Clone)]
 pub enum Type {
     Integer(Span),
-    Variable(VariableCell),
+    Unification(VariableCell),
+    Rigid(Identifier),
     Function(Vec<Type>, Box<Type>, LambdaSet, Span),
     Tuple(Vec<Type>, Span),
-    Constructor(Identifier),
+    Constructor(Identifier, Vec<Type>, Span),
 }
 
 #[derive(Clone)]
@@ -133,6 +135,17 @@ enum RawVariableCell {
     Type(Type),
 }
 
+impl Function {
+    pub fn typ(&self) -> Type {
+        Type::Function(
+            self.arguments.iter().map(|arg| arg.typ.clone()).collect(),
+            Box::new(self.result.clone()),
+            self.set.clone(),
+            self.span.clone(),
+        )
+    }
+}
+
 impl Identifier {
     pub fn new(name: String, span: Span) -> Self {
         Self {
@@ -143,9 +156,8 @@ impl Identifier {
 }
 
 impl Span {
-    /*
     pub fn dummy() -> Self {
-        todo!()
+        Self { start: 0, end: 0 }
     }
 
     pub fn range(self) -> RangeInclusive<usize> {
@@ -163,7 +175,7 @@ impl Span {
 impl Pattern {
     pub fn span(&self) -> Span {
         match self {
-            Pattern::Variable(name) => name.span,
+            Pattern::Variable(name, _) => name.span,
             Pattern::Tuple(_, span) => *span,
         }
     }
@@ -173,10 +185,38 @@ impl Type {
     pub fn span(&self) -> Span {
         match self {
             Type::Integer(span) => *span,
-            Type::Variable(name) => name.span(),
+            Type::Unification(name) => name.span(),
+            Type::Rigid(name) => name.span,
             Type::Function(_, _, _, span) => *span,
             Type::Tuple(_, span) => *span,
-            Type::Constructor(name) => name.span,
+            Type::Constructor(_, _, span) => *span,
+        }
+    }
+
+    pub fn normalize(&self) -> Self {
+        match self {
+            Type::Integer(_) | Type::Rigid(_) => self.clone(),
+            Type::Unification(cell) => {
+                if cell.is_some() {
+                    cell.get().clone()
+                } else {
+                    self.clone()
+                }
+            }
+            Type::Function(args, res, set, span) => Type::Function(
+                args.iter().map(Type::normalize).collect(),
+                Box::new(res.normalize()),
+                set.clone(),
+                *span,
+            ),
+            Type::Tuple(elems, span) => {
+                Type::Tuple(elems.iter().map(Type::normalize).collect(), *span)
+            }
+            Type::Constructor(name, args, span) => Type::Constructor(
+                name.clone(),
+                args.iter().map(Type::normalize).collect(),
+                *span,
+            ),
         }
     }
 }
@@ -198,6 +238,20 @@ impl VariableCell {
             RawVariableCell::Type(typ) => typ.span(),
         }
     }
+
+    pub fn is_some(&self) -> bool {
+        matches!(*self.inner.as_ref().borrow(), RawVariableCell::Type(_))
+    }
+
+    pub fn get(&self) -> Ref<Type> {
+        Ref::map(self.inner.as_ref().borrow(), |raw| {
+            if let RawVariableCell::Type(typ) = raw {
+                typ
+            } else {
+                unreachable!()
+            }
+        })
+    }
 }
 
 impl fmt::Debug for Identifier {
@@ -210,10 +264,11 @@ impl fmt::Debug for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Integer(_) => write!(f, "Int"),
-            Type::Variable(name) => match name.inner.as_ref().borrow().deref() {
+            Type::Unification(name) => match name.inner.as_ref().borrow().deref() {
                 RawVariableCell::Variable(name) => name.fmt(f),
                 RawVariableCell::Type(typ) => typ.fmt(f),
             },
+            Type::Rigid(name) => write!(f, "{:?}", name),
             Type::Function(args, result, set, _) => {
                 write!(f, "(")?;
                 comma_list(f, args)?;
@@ -224,7 +279,12 @@ impl fmt::Debug for Type {
                 comma_list(f, elems)?;
                 write!(f, ")")
             }
-            Type::Constructor(name) => name.fmt(f),
+            Type::Constructor(name, args, _) => {
+                name.fmt(f)?;
+                write!(f, "[")?;
+                comma_list(f, args)?;
+                write!(f, "]")
+            }
         }
     }
 }
@@ -248,7 +308,7 @@ impl fmt::Debug for ClosureArgument {
 impl fmt::Debug for Pattern {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Pattern::Variable(name) => name.fmt(f),
+            Pattern::Variable(name, _) => name.fmt(f),
             Pattern::Tuple(elems, _) => {
                 write!(f, "(")?;
                 comma_list(f, elems)?;
@@ -262,7 +322,7 @@ impl Expr {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Integer(int, _) => write!(f, "{int}"),
-            Expr::Variable(name) => write!(f, "{:?}", name),
+            Expr::Variable(name, _) => write!(f, "{:?}", name),
             Expr::FunctionCall {
                 function,
                 set,
@@ -355,7 +415,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Expr::Integer(_, span) => *span,
-            Expr::Variable(name) => name.span,
+            Expr::Variable(name, _) => name.span,
             Expr::FunctionCall { span, .. } => *span,
             Expr::Function { span, .. } => *span,
             Expr::Tuple(_, span) => *span,
@@ -409,7 +469,9 @@ impl fmt::Debug for Function {
 
 impl fmt::Debug for Enum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "enum {:?} {{", self.name)?;
+        write!(f, "enum {:?}[", self.name)?;
+        comma_list(f, &self.generics)?;
+        write!(f, "] {{")?;
         comma_list(f, &self.cases)?;
         write!(f, "}}")
     }

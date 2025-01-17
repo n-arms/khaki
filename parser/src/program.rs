@@ -52,6 +52,7 @@ fn function<'a>(env: &'a Env) -> parser!('a, Function) {
                 generics,
                 result,
                 body,
+                set: env.lambda_set(),
             },
         )
 }
@@ -74,6 +75,8 @@ fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
             name,
             cases,
             span: start.span.merge(end),
+            // todo: parse generics
+            generics: Vec::new(),
         })
 }
 

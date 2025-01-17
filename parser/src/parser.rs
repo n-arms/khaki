@@ -7,7 +7,7 @@ macro_rules! parser {
 pub(crate) use parser;
 
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     ops::{Index, RangeInclusive},
 };
 
@@ -96,6 +96,7 @@ pub(crate) fn token<'a>(kind: Kind) -> parser!('a, Token) {
 
 pub struct Env {
     pub text: String,
+    pub tokens: RefCell<Vec<Token>>,
     lambda_sets: Cell<usize>,
     names: Cell<usize>,
 }
@@ -104,6 +105,7 @@ impl Env {
     pub fn new(text: String) -> Self {
         Self {
             text,
+            tokens: RefCell::new(Vec::new()),
             lambda_sets: Cell::default(),
             names: Cell::default(),
         }
@@ -113,6 +115,10 @@ impl Env {
         let token = self.lambda_sets.get();
         self.lambda_sets.set(token + 1);
         LambdaSet { token }
+    }
+
+    pub(crate) fn set_tokens(&self, tokens: Vec<Token>) {
+        *self.tokens.borrow_mut().as_mut() = tokens;
     }
 
     pub(crate) fn name(&self, prefix: &str, span: Span) -> Identifier {
