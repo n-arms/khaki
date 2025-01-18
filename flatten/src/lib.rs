@@ -132,11 +132,20 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(expr(*tuple, env, bank)), field)
         }
-        Expr::Enum { typ, tag, argument } => Expr::Enum {
+        Expr::Enum {
             typ,
             tag,
-            argument: Box::new(expr(*argument, env, bank)),
-        },
+            generics,
+            argument,
+        } => {
+            assert!(generics.is_empty());
+            Expr::Enum {
+                typ,
+                tag,
+                generics,
+                argument: Box::new(expr(*argument, env, bank)),
+            }
+        }
         Expr::Match { head, cases } => {
             let cases = cases
                 .into_iter()
@@ -222,11 +231,20 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(replace_expr(*tuple, generics)), field)
         }
-        Expr::Enum { typ, tag, argument } => Expr::Enum {
+        Expr::Enum {
             typ,
             tag,
-            argument: Box::new(replace_expr(*argument, generics)),
-        },
+            generics: enum_generics,
+            argument,
+        } => {
+            assert!(enum_generics.is_empty());
+            Expr::Enum {
+                typ,
+                tag,
+                generics: enum_generics,
+                argument: Box::new(replace_expr(*argument, generics)),
+            }
+        }
         Expr::Match { head, cases } => Expr::Match {
             cases: cases
                 .into_iter()

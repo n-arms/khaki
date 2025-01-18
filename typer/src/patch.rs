@@ -224,12 +224,18 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
             hir::Expr::TupleAccess(Box::new(hir_tuple), *field)
         }
         Expr::Enum {
-            typ, tag, argument, ..
+            typ,
+            tag,
+            generics,
+            argument,
+            ..
         } => {
+            let hir_generics = generics.iter().map(|gen| patch_typ(gen, patcher)).collect();
             let hir_arg = patch_expr(argument.as_ref(), patcher);
             hir::Expr::Enum {
                 typ: typ.name.clone(),
                 tag: tag.name.clone(),
+                generics: hir_generics,
                 argument: Box::new(hir_arg),
             }
         }

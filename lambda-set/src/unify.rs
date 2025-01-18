@@ -163,7 +163,9 @@ fn infer_expr(
                 unreachable!()
             }
         }
-        Expr::Enum { typ, tag, argument } => {
+        Expr::Enum {
+            typ, tag, argument, ..
+        } => {
             let arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
 
             let enum_def = enums[typ].clone();

@@ -399,7 +399,9 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 base::Expr::TupleAccess(lowered_tuple, *field),
             );
         }
-        Expr::Enum { typ, tag, argument } => {
+        Expr::Enum {
+            typ, tag, argument, ..
+        } => {
             let lowered_arg = lower_expr(argument.as_ref(), stmts, lower);
             stmts.stmt(
                 result.clone(),

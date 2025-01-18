@@ -85,6 +85,7 @@ pub enum Expr {
     Enum {
         typ: Identifier,
         tag: Identifier,
+        generics: Vec<Type>,
         argument: Box<Expr>,
         span: Span,
     },

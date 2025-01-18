@@ -280,11 +280,13 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
         Expr::Enum {
             typ,
             tag,
+            generics: enum_generics,
             argument,
             span,
         } => {
             let def = env.lookup_enum(typ)?;
             let (expected, generics) = variant_type(def, tag, &mut env.clone())?;
+            *enum_generics = generics.clone();
             check_expr(argument.as_mut(), &expected, env)?;
             Ok(Type::Constructor(typ.clone(), generics, *span))
         }

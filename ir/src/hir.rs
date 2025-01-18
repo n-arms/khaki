@@ -100,6 +100,7 @@ pub enum Expr {
     Enum {
         typ: Identifier,
         tag: Identifier,
+        generics: Vec<Type>,
         argument: Box<Expr>,
     },
     Match {
@@ -376,8 +377,19 @@ impl fmt::Debug for Expr {
                 write!(f, "|>")
             }
             Expr::TupleAccess(tuple, field) => write!(f, "{:?}.{}", tuple.as_ref(), field),
-            Expr::Enum { typ, tag, argument } => {
-                write!(f, "{:?}::{:?}({:?})", typ, tag, argument)
+            Expr::Enum {
+                typ,
+                tag,
+                generics,
+                argument,
+            } => {
+                write!(f, "{:?}", typ)?;
+                if !generics.is_empty() {
+                    write!(f, "[")?;
+                    comma_list(f, generics)?;
+                    write!(f, "]")?;
+                }
+                write!(f, "::{:?}({:?})", tag, argument)
             }
             Expr::Match { head: expr, cases } => {
                 write!(f, "match {:?} {{", expr)?;

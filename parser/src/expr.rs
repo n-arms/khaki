@@ -53,6 +53,7 @@ pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
             argument: Box::new(argument),
             span: typ.span.merge(end.span),
             typ,
+            generics: Vec::new(),
         });
     let match_case = identifier(env)
         .then_ignore(token(Kind::LeftParen))
