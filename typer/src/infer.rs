@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::cell::{Cell, RefCell};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -102,6 +103,10 @@ impl Env {
         let name = parsed::Identifier::new(format!("uni_{}", token), span);
         VariableCell::new(name)
     }
+
+    fn fresh_set(&self) -> LambdaSet {
+        self.lambda_sets.as_ref().borrow_mut().token()
+    }
 }
 
 pub fn infer_program(program: &mut Program, lambda_sets: usize) -> Result<UnionFind<LambdaSet>> {
@@ -185,6 +190,11 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
             } = env.lookup_variable(name)?;
             let typ = match scheme {
                 Scheme::Forall(generics, generic_typ) => {
+                    let typ = if let Type::Function(args, res, _, span) = generic_typ {
+                        Type::Function(args.clone(), res.clone(), env.fresh_set(), *span)
+                    } else {
+                        generic_typ.clone()
+                    };
                     let (call_generics, mapping) = generics
                         .iter()
                         .map(|generic| {
@@ -194,7 +204,7 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
                         .unzip::<_, _, Vec<_>, Vec<_>>();
                     let subst = Subst::new(mapping);
                     *var_generics = call_generics;
-                    subst.typ(generic_typ)
+                    subst.typ(&typ)
                 }
                 Scheme::Type(typ) => typ.clone(),
             };

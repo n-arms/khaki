@@ -3,6 +3,7 @@
 use chumsky::error::Simple;
 use flatten::flatten_program;
 use ir::token::Token;
+use lambda_set::defunctionalize_program;
 use parser::parse_program;
 use typer::type_program;
 
@@ -38,9 +39,13 @@ fn main() {
 
             println!("typed: {:?}", typed);
 
-            let flat = flatten_program(&typed);
+            let mut flat = flatten_program(&typed);
 
             println!("flat: {:?}", flat);
+
+            defunctionalize_program(&mut flat);
+
+            println!("defunc: {:?}", flat);
             /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);

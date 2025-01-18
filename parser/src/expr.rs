@@ -31,7 +31,7 @@ pub(crate) fn expr(env: &Env) -> parser!('_, Expr) {
                 arguments,
                 result,
                 set: env.lambda_set(),
-                name: env.name("Closure", start.merge(body.span())),
+                name: env.name("closure", start.merge(body.span())),
                 span: start.merge(body.span()),
                 body: Box::new(body),
             },

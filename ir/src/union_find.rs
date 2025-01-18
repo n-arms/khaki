@@ -32,4 +32,10 @@ impl<T: Into<usize> + From<usize> + Clone + Eq> UnionFind<T> {
             root
         }
     }
+
+    pub fn token(&mut self) -> T {
+        let token = self.elems.len();
+        self.elems.push(T::from(token));
+        T::from(token)
+    }
 }
