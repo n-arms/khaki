@@ -110,10 +110,8 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
     match to_patch {
         Expr::Integer(_) => {}
         Expr::Variable { name, typ, .. } => {
-            if let Some(typ) = typ {
-                patch_type(typ, patcher);
-            }
-            patcher.function_name(name, typ.as_ref().unwrap());
+            patch_type(typ, patcher);
+            patcher.function_name(name, typ);
         }
         Expr::FunctionCall {
             function,
@@ -166,7 +164,7 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             patch_expr(head.as_mut(), patcher);
             for case in cases {
                 patch_expr(&mut case.body, patcher);
-                patch_type(case.binding_type.as_mut().unwrap(), patcher);
+                patch_type(&mut case.binding_type, patcher);
             }
         }
     }

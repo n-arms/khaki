@@ -96,15 +96,13 @@ fn infer_expr(
 ) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
-        Expr::Variable { name, typ, .. } => {
+        Expr::Variable {
+            name, typ: old_typ, ..
+        } => {
             let env_typ = env[name].clone();
-            if let Some(old_typ) = typ {
-                update_type(old_typ, uf);
-                union_type(old_typ, &env_typ, uf);
-            } else {
-                *typ = Some(env_typ);
-            }
-            typ.clone().unwrap()
+            update_type(old_typ, uf);
+            union_type(old_typ, &env_typ, uf);
+            old_typ.clone()
         }
         Expr::FunctionCall {
             function,
@@ -189,7 +187,7 @@ fn infer_expr(
                     let mut inner = env.clone();
                     let typ = enum_def.variant_type(&case.variant);
                     inner.insert(case.binding.clone(), typ.clone());
-                    case.binding_type = Some(typ.clone());
+                    case.binding_type = typ.clone();
                     infer_expr(&mut case.body, inner, uf, enums, closures)
                 })
                 .collect();

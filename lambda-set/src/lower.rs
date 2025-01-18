@@ -315,7 +315,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
         }
         Expr::Variable { name, typ, .. } => {
             if lower.is_function(name) {
-                let Type::Function(_, _, set) = typ.as_ref().unwrap() else {
+                let Type::Function(_, _, set) = typ else {
                     unreachable!()
                 };
                 let typ = Identifier::from(format!("closure_{}", set.token));
@@ -332,7 +332,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                     },
                 );
             } else {
-                return Variable::new(name.clone(), lower_type(typ.as_ref().unwrap(), lower));
+                return Variable::new(name.clone(), lower_type(typ, lower));
             }
         }
         Expr::FunctionCall {
@@ -417,10 +417,8 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 .map(|case| {
                     let mut body = BlockBuilder::default();
                     let case_result = lower_expr(&case.body, &mut body, lower);
-                    let binding = Variable::new(
-                        case.binding.clone(),
-                        lower_type(case.binding_type.as_ref().unwrap(), lower),
-                    );
+                    let binding =
+                        Variable::new(case.binding.clone(), lower_type(&case.binding_type, lower));
                     base::MatchCase {
                         variant: case.variant.clone(),
                         binding,

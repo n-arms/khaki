@@ -80,7 +80,7 @@ pub enum Expr {
     Variable {
         name: Identifier,
         generics: Vec<Type>,
-        typ: Option<Type>,
+        typ: Type,
     },
     FunctionCall {
         function: Box<Expr>,
@@ -112,7 +112,7 @@ pub enum Expr {
 pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Identifier,
-    pub binding_type: Option<Type>,
+    pub binding_type: Type,
     pub body: Expr,
 }
 
@@ -120,7 +120,7 @@ impl Expr {
     pub fn typ(&self) -> Type {
         match self {
             Expr::Integer(_) => Type::Integer,
-            Expr::Variable { typ, .. } => typ.clone().unwrap(),
+            Expr::Variable { typ, .. } => typ.clone(),
             Expr::FunctionCall { function, .. } => {
                 if let Type::Function(_, res, _) = function.typ() {
                     *res

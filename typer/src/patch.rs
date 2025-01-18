@@ -1,6 +1,6 @@
 use ir::{
     hir::{self, LambdaSet},
-    parsed::{Argument, Enum, EnumCase, Expr, Function, Pattern, Program, Type},
+    parsed::{Enum, Expr, Function, Pattern, Program, Type},
     union_find::UnionFind,
 };
 
@@ -91,7 +91,7 @@ fn patch_arg(
         hir::Expr::Variable {
             name: arg_name.clone(),
             generics: Vec::new(),
-            typ: Some(typ.clone()),
+            typ: typ.clone(),
         },
         arg_binding,
         patcher,
@@ -167,7 +167,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                 .iter()
                 .map(|generic| patch_typ(generic, patcher))
                 .collect(),
-            typ: Some(patch_typ(typ.as_ref().unwrap(), patcher)),
+            typ: patch_typ(typ.as_ref().unwrap(), patcher),
         },
         Expr::FunctionCall {
             function,
@@ -244,7 +244,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                         hir::Expr::Variable {
                             name: binding.clone(),
                             generics: Vec::new(),
-                            typ: Some(binding_type.clone()),
+                            typ: binding_type.clone(),
                         },
                         &case.binding,
                         patcher,
@@ -254,7 +254,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                     hir::MatchCase {
                         variant: case.variant.name.clone(),
                         binding,
-                        binding_type: Some(binding_type),
+                        binding_type,
                         body,
                     }
                 })

@@ -166,7 +166,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .into_iter()
                 .map(|generic| replace_type(generic, generics.clone()))
                 .collect(),
-            typ: typ.map(|typ| replace_type(typ, generics)),
+            typ: replace_type(typ, generics),
         },
         Expr::FunctionCall {
             function,
