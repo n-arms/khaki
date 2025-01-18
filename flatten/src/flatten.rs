@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ir::hir::{Argument, Enum, Expr, Function, Identifier, MatchCase, Program, Type};
+use ir::hir::{Argument, Expr, Identifier, MatchCase, Program, Type};
 
 use crate::env::Env;
 
@@ -13,7 +13,7 @@ impl Subst {
     pub fn get(&self, name: &Identifier) -> Type {
         self.generics
             .get(name)
-            .expect(&format!("unspecified generic {:?}", name))
+            .unwrap_or_else(|| panic!("unspecified generic {:?}", name))
             .clone()
     }
 
@@ -85,7 +85,7 @@ fn flatten_typ(typ: &Type, generics: &Subst, env: &mut Env) -> Type {
             args.iter()
                 .map(|arg| flatten_typ(arg, generics, env))
                 .collect(),
-            Box::new(flatten_typ(&res, generics, env)),
+            Box::new(flatten_typ(res, generics, env)),
             set.clone(),
         ),
         Type::Tuple(elems) => Type::Tuple(
@@ -100,7 +100,7 @@ fn flatten_typ(typ: &Type, generics: &Subst, env: &mut Env) -> Type {
                 .map(|arg| flatten_typ(arg, generics, env))
                 .collect();
 
-            let flat_name = flatten_enum(&name, flat_args, env);
+            let flat_name = flatten_enum(name, flat_args, env);
 
             Type::Constructor(flat_name, Vec::new())
         }
@@ -169,7 +169,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
             set,
             arguments,
         } => Expr::FunctionCall {
-            function: Box::new(flatten_expr(&function, generics, env)),
+            function: Box::new(flatten_expr(function, generics, env)),
             set: set.clone(),
             arguments: arguments
                 .iter()
@@ -199,7 +199,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
                 })
                 .collect();
             let flat_res = flatten_typ(result, generics, env);
-            let flat_body = flatten_expr(&body, generics, env);
+            let flat_body = flatten_expr(body, generics, env);
             Expr::Function {
                 captures: flat_caps,
                 arguments: flat_args,
@@ -216,7 +216,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
                 .collect(),
         ),
         Expr::TupleAccess(tuple, field) => {
-            Expr::TupleAccess(Box::new(flatten_expr(&tuple, generics, env)), *field)
+            Expr::TupleAccess(Box::new(flatten_expr(tuple, generics, env)), *field)
         }
         Expr::Enum {
             typ,
@@ -229,7 +229,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
                 .map(|typ| flatten_typ(typ, generics, env))
                 .collect();
             let new_typ = flatten_enum(typ, flat_generics, env);
-            let flat_arg = flatten_expr(&argument, generics, env);
+            let flat_arg = flatten_expr(argument, generics, env);
 
             Expr::Enum {
                 typ: new_typ,
@@ -239,7 +239,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
             }
         }
         Expr::Match { head, cases } => {
-            let flat_head = flatten_expr(&head, generics, env);
+            let flat_head = flatten_expr(head, generics, env);
             let flat_cases = cases
                 .iter()
                 .map(|case| MatchCase {
