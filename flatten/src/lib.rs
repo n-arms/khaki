@@ -159,6 +159,12 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
                 head: Box::new(expr(*head, env, bank)),
             }
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 
@@ -255,6 +261,12 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .collect(),
             head: Box::new(replace_expr(*head, generics)),
         },
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 

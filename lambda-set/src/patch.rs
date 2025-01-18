@@ -167,6 +167,12 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
                 patch_type(&mut case.binding_type, patcher);
             }
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 

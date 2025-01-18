@@ -14,7 +14,7 @@ use chumsky::{
     Parser,
 };
 use ir::{
-    parsed::{ClosureArgument, Expr, MatchCase, Type, VariableCell},
+    parsed::{Capture, ClosureArgument, Expr, MatchCase, Type, VariableCell},
     token::Kind,
 };
 
@@ -23,7 +23,7 @@ pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
     let integer =
         token(Kind::Integer).map(|token| Expr::Integer(env[token].parse().unwrap(), token.span));
     let variable = identifier(env).map(|name| Expr::Variable(name, Vec::new(), None));
-    let function = square_list_in(identifier(env))
+    let function = square_list_in(identifier(env).map(|name| Capture { name, typ: None }))
         .then(paren_list(closure_argument(env)))
         .then(token(Kind::ThinArrow).ignore_then(typ(env)).or_not())
         .then_ignore(token(Kind::Equals))

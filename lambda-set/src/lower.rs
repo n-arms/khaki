@@ -436,6 +436,12 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 },
             );
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
     result
 }

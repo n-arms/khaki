@@ -72,7 +72,7 @@ pub enum Expr {
         span: Span,
     },
     Function {
-        captures: Vec<Identifier>,
+        captures: Vec<Capture>,
         arguments: Vec<ClosureArgument>,
         result: Option<Type>,
         body: Box<Expr>,
@@ -101,6 +101,12 @@ pub struct ClosureArgument {
     pub binding: Pattern,
     pub typ: Option<Type>,
     pub span: Span,
+}
+
+#[derive(Clone)]
+pub struct Capture {
+    pub name: Identifier,
+    pub typ: Option<Type>,
 }
 
 #[derive(Clone)]
@@ -509,5 +515,11 @@ impl fmt::Debug for Program {
 impl fmt::Debug for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}..={}", self.start, self.end)
+    }
+}
+
+impl fmt::Debug for Capture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.name.fmt(f)
     }
 }

@@ -68,14 +68,13 @@ fn patch_function(func: &Function, patcher: &mut Patcher) -> hir::Function {
         .iter()
         .map(|arg| patch_arg(&arg.binding, &arg.typ, patcher, &mut lets))
         .collect();
-    assert_eq!(lets.len(), 0);
     let generics = func
         .generics
         .iter()
         .map(|generic| generic.name.clone())
         .collect();
     let result = patch_typ(&func.result, patcher);
-    let body = patch_expr(&func.body, patcher);
+    let body = add_lets(patch_expr(&func.body, patcher), lets);
     hir::Function {
         name: func.name.name.clone(),
         arguments,
@@ -83,6 +82,18 @@ fn patch_function(func: &Function, patcher: &mut Patcher) -> hir::Function {
         result,
         body,
     }
+}
+
+fn add_lets(mut base: hir::Expr, lets: Vec<(hir::Identifier, hir::Type, hir::Expr)>) -> hir::Expr {
+    for (name, typ, value) in lets {
+        base = hir::Expr::Let {
+            name,
+            typ,
+            value: Box::new(value),
+            rest: Box::new(base),
+        };
+    }
+    base
 }
 
 fn patch_arg(
@@ -200,8 +211,8 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
             let hir_captures = captures
                 .iter()
                 .map(|cap| hir::Argument {
-                    name: cap.name.clone(),
-                    typ: patch_typ(todo!(), patcher),
+                    name: cap.name.name.clone(),
+                    typ: patch_typ(cap.typ.as_ref().unwrap(), patcher),
                 })
                 .collect();
             let mut lets = Vec::new();
@@ -210,8 +221,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                 .map(|arg| patch_arg(&arg.binding, arg.typ.as_ref().unwrap(), patcher, &mut lets))
                 .collect();
             let hir_result = patch_typ(result.as_ref().unwrap(), patcher);
-            let hir_body = patch_expr(body.as_ref(), patcher);
-            assert!(lets.is_empty());
+            let hir_body = add_lets(patch_expr(body.as_ref(), patcher), lets);
             hir::Expr::Function {
                 captures: hir_captures,
                 arguments: hir_arguments,
@@ -261,8 +271,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                         &case.binding,
                         patcher,
                     );
-                    assert!(lets.is_empty());
-                    let body = patch_expr(&case.body, patcher);
+                    let body = add_lets(patch_expr(&case.body, patcher), lets);
                     hir::MatchCase {
                         variant: case.variant.name.clone(),
                         binding,

@@ -202,5 +202,11 @@ fn infer_expr(
             }
             case_typs[0].clone()
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }

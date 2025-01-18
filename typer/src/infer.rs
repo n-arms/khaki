@@ -140,22 +140,6 @@ fn infer_function(func: &mut Function, mut env: Env) -> Result<()> {
 
 fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
     match (expr, typ) {
-        (Expr::Integer(_, _), Type::Integer(_)) => Ok(()),
-        (Expr::Variable(name, var_generics, var_typ), typ) => {
-            let Variable {
-                name: env_name,
-                typ: scheme,
-            } = env.lookup_variable(&name)?;
-            match scheme {
-                Scheme::Forall(generics, generic_typ) => todo!(),
-                Scheme::Type(env_typ) => {
-                    let env_typ = env_typ.clone();
-                    *var_typ = Some(env_typ.clone());
-                    unify(&env_typ, typ, name.span, &mut env)?;
-                }
-            }
-            Ok(())
-        }
         (
             Expr::Function {
                 captures,
@@ -196,16 +180,27 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
 fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
     match expr {
         Expr::Integer(_, span) => Ok(Type::Integer(*span)),
-        Expr::Variable(name, var_generics, _typ) => {
+        Expr::Variable(name, var_generics, var_typ) => {
             let Variable {
-                name: env_name,
+                name: _,
                 typ: scheme,
             } = env.lookup_variable(name)?;
             let typ = match scheme {
-                Scheme::Forall(_, _) => todo!(),
+                Scheme::Forall(generics, generic_typ) => {
+                    let (call_generics, mapping) = generics
+                        .iter()
+                        .map(|generic| {
+                            let typ = Type::Unification(env.unification_var(generic.span));
+                            (typ.clone(), (generic.clone(), typ))
+                        })
+                        .unzip::<_, _, Vec<_>, Vec<_>>();
+                    let subst = Subst::new(mapping);
+                    *var_generics = call_generics;
+                    subst.typ(generic_typ)
+                }
                 Scheme::Type(typ) => typ.clone(),
             };
-            *_typ = Some(typ.clone());
+            *var_typ = Some(typ.clone());
             Ok(typ)
         }
         Expr::FunctionCall {

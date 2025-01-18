@@ -108,6 +108,12 @@ pub enum Expr {
         head: Box<Expr>,
         cases: Vec<MatchCase>,
     },
+    Let {
+        name: Identifier,
+        typ: Type,
+        value: Box<Expr>,
+        rest: Box<Expr>,
+    },
 }
 
 #[derive(Clone)]
@@ -150,6 +156,7 @@ impl Expr {
             }
             Expr::Enum { typ, generics, .. } => Type::Constructor(typ.clone(), generics.clone()),
             Expr::Match { cases, .. } => cases[0].body.typ(),
+            Expr::Let { rest, .. } => rest.typ(),
         }
     }
 }
@@ -410,6 +417,14 @@ impl fmt::Debug for Expr {
                 write!(f, "match {:?} {{", expr)?;
                 comma_list(f, cases)?;
                 write!(f, "}}")
+            }
+            Expr::Let {
+                name,
+                typ,
+                value,
+                rest,
+            } => {
+                write!(f, "let {:?}: {:?} = {:?} in {:?}", name, typ, value, rest)
             }
         }
     }
