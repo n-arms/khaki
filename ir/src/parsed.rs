@@ -371,9 +371,9 @@ impl Expr {
                 comma_list(f, captures)?;
                 write!(f, "](")?;
                 comma_list(f, arguments)?;
-                write!(f, ") -{:?}", set.token)?;
+                write!(f, ") -{:?}->", set.token)?;
                 if let Some(typ) = &result {
-                    write!(f, "-> {:?}", typ)?;
+                    write!(f, " {:?}", typ)?;
                 }
                 write!(f, " = ")?;
                 body.fmt(ind, f)

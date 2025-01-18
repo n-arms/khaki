@@ -211,7 +211,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
                 arguments: hir_arguments,
                 result: hir_result,
                 body: Box::new(hir_body),
-                set: set.clone(),
+                set: patcher.lambda_set_root(set.clone()),
                 name: name.name.clone(),
             }
         }

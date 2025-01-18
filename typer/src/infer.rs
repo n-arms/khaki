@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::substitute::Subst;
@@ -103,7 +104,7 @@ impl Env {
     }
 }
 
-pub fn infer_program(program: &mut Program, lambda_sets: usize) -> Result<()> {
+pub fn infer_program(program: &mut Program, lambda_sets: usize) -> Result<UnionFind<LambdaSet>> {
     let mut env = Env::new(lambda_sets);
     for (_, def) in program.enums.iter_mut() {
         infer_enum(def, &mut env)?;
@@ -114,7 +115,8 @@ pub fn infer_program(program: &mut Program, lambda_sets: usize) -> Result<()> {
     for func in program.functions.iter_mut() {
         infer_function(func, env.clone())?;
     }
-    Ok(())
+    let env_ref = env.lambda_sets.as_ref().borrow();
+    Ok(env_ref.deref().clone())
 }
 
 fn define_function(func: &Function, env: &mut Env) -> Result<()> {

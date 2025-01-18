@@ -63,9 +63,10 @@ pub fn next_token(stream: &mut Stream) -> Option<Token> {
             }
         }
         '=' => {
-            if let Some((index, next)) = stream.peek() {
-                if *next == '>' {
+            if let Some((index, next)) = stream.peek().copied() {
+                if next == '>' {
                     stream.next();
+                    end = index;
                     Kind::ThickArrow
                 } else {
                     Kind::Equals

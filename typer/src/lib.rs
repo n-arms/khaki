@@ -28,7 +28,7 @@ pub enum Error {
 pub type Result<T> = result::Result<T, Error>;
 
 pub fn type_program(mut program: parsed::Program, lambda_sets: usize) -> Result<hir::Program> {
-    infer_program(&mut program, lambda_sets)?;
-    let mut patcher = Patcher::new(UnionFind::new_with(lambda_sets));
+    let union_find = infer_program(&mut program, lambda_sets)?;
+    let mut patcher = Patcher::new(union_find);
     Ok(patch_program(&program, &mut patcher))
 }

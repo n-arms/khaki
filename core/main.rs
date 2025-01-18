@@ -28,7 +28,7 @@ fn main() {
                     return;
                 }
             };
-            println!("{:?}", parsed);
+            println!("parsed: {:?}", parsed);
             let typed = match type_program(parsed, parse_env.lamda_sets()) {
                 Ok(t) => t,
                 Err(error) => {
@@ -37,7 +37,7 @@ fn main() {
                 }
             };
 
-            println!("{:?}", typed);
+            println!("typed: {:?}", typed);
             /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);

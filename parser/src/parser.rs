@@ -91,7 +91,7 @@ pub(crate) fn upper_identifier<'a>(env: &'a Env) -> parser!('a, Identifier) {
 }
 
 pub(crate) fn token<'a>(kind: Kind) -> parser!('a, Token) {
-    just(kind.dummy())
+    filter(move |token: &Token| token.kind == kind)
 }
 
 pub struct Env {
@@ -152,6 +152,8 @@ impl Index<Token> for Env {
     type Output = str;
 
     fn index(&self, index: Token) -> &Self::Output {
-        &self.text[index.span.range()]
+        let range = index.span.range();
+
+        &self.text[range]
     }
 }

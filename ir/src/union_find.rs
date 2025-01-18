@@ -1,3 +1,4 @@
+#[derive(Clone, Default)]
 pub struct UnionFind<T> {
     elems: Vec<T>,
 }

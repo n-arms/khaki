@@ -308,7 +308,7 @@ impl fmt::Debug for Type {
                     comma_list(f, args)?;
                     write!(f, ")")?;
                 }
-                write!(f, " - {:?} -> {:?}", set.token, result)
+                write!(f, " -{:?}-> {:?}", set.token, result)
             }
             Type::Variable(name) => write!(f, "{:?}", name),
             Type::Tuple(elems) => {
@@ -369,7 +369,7 @@ impl fmt::Debug for Expr {
                 comma_list(f, captures)?;
                 write!(f, "](")?;
                 comma_list(f, arguments)?;
-                write!(f, ") - {:?} -> {:?} = {:?}", set.token, result, body)
+                write!(f, ") -{:?}-> {:?} = {:?}", set.token, result, body)
             }
             Expr::Tuple(elems) => {
                 write!(f, "<|")?;
