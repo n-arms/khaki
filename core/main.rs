@@ -2,6 +2,7 @@
 
 use chumsky::error::Simple;
 use ir::token::Token;
+use lambda_set::defunctionalize_program;
 use parser::parse_program;
 use typer::type_program;
 

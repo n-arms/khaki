@@ -8,14 +8,15 @@ use crate::pool::{Lambda, LambdaSetPool};
 struct Pools {
     pools: HashMap<LambdaSet, LambdaSetPool>,
 }
+
 impl Pools {
     fn lambda(
         &mut self,
         set: &LambdaSet,
         name: Identifier,
-        generics: Vec<Identifier>,
         captures: Vec<Argument>,
         arguments: &[Argument],
+        result: &Type,
     ) {
         let pool = self
             .pools
@@ -23,18 +24,10 @@ impl Pools {
             .or_insert_with(move || LambdaSetPool {
                 set: set.clone(),
                 lambdas: Vec::new(),
-                generics: Vec::new(),
                 arguments: arguments.to_vec(),
+                result: result.clone(),
             });
-        let pool_generics_start = pool.generics.len();
-        pool.generics.extend(generics);
-        let pool_generics_end = pool.generics.len();
-        pool.lambdas.push(Lambda {
-            name,
-            pool_generics_start,
-            pool_generics_end,
-            captures,
-        });
+        pool.lambdas.push(Lambda { name, captures });
     }
 }
 
@@ -95,19 +88,16 @@ fn gather_expr(
             name,
         } => {
             let lambda_args: Vec<_> = arguments.iter().chain(captures).cloned().collect();
-            let mut generics = typ_generics(result);
-            for arg in &lambda_args {
-                generics.extend(typ_generics(&arg.typ));
-            }
+
             let function = Function {
                 name: name.clone(),
                 arguments: lambda_args,
-                generics: generics.clone(),
+                generics: Vec::new(),
                 result: result.clone(),
                 body: body.as_ref().clone(),
             };
             lambdas.push(function);
-            pools.lambda(set, name.clone(), generics, captures.clone(), arguments);
+            pools.lambda(set, name.clone(), captures.clone(), arguments, result);
             gather_expr(&body, pools, functions, lambdas);
         }
         Expr::Tuple(elems) => {
@@ -127,19 +117,5 @@ fn gather_expr(
             gather_expr(&value, pools, functions, lambdas);
             gather_expr(&rest, pools, functions, lambdas);
         }
-    }
-}
-
-fn typ_generics(typ: &Type) -> Vec<Identifier> {
-    match typ {
-        Type::Integer => Vec::new(),
-        Type::Variable(name) => vec![name.clone()],
-        Type::Function(args, res, _) => {
-            let mut generics = typ_generics(&res);
-            generics.extend(args.iter().flat_map(typ_generics));
-            generics
-        }
-        Type::Tuple(elems) => elems.iter().flat_map(typ_generics).collect(),
-        Type::Constructor(_, args) => args.iter().flat_map(typ_generics).collect(),
     }
 }
