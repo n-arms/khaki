@@ -42,6 +42,9 @@ impl Env {
 
 pub fn defunc_program(program: &mut Program, pools: &[LambdaSetPool]) {
     let mut env = Env::new(program.functions.iter().map(|func| func.name.clone()));
+    for (_, def) in &mut program.enums {
+        defunc_enum(def, &mut env);
+    }
     for function in &mut program.functions {
         defunc_function(function, &mut env);
     }
@@ -52,10 +55,23 @@ pub fn defunc_program(program: &mut Program, pools: &[LambdaSetPool]) {
     }
 }
 
+fn defunc_enum(def: &mut Enum, env: &mut Env) {
+    for (_, case) in &mut def.cases {
+        *case = defunc_typ(case, env);
+    }
+}
+
 /// generate the `call_closure_x` function that takes a lambda set enum and dynamically dispatches the function call to the correct function.
 fn pool_caller(pool: &LambdaSetPool, env: &mut Env) -> (Enum, Function) {
     let enum_name = env.set_name(&pool.set);
-    let mut arguments = pool.arguments.clone();
+    let mut arguments: Vec<_> = pool
+        .arguments
+        .iter()
+        .map(|arg| Argument {
+            name: arg.name.clone(),
+            typ: defunc_typ(&arg.typ, env),
+        })
+        .collect();
     let closure_arg = Identifier::from(String::from("closure"));
     let closure_typ = Type::Constructor(enum_name.clone(), Vec::new());
     arguments.push(Argument {
@@ -84,16 +100,15 @@ fn pool_caller(pool: &LambdaSetPool, env: &mut Env) -> (Enum, Function) {
         .lambdas
         .iter()
         .map(|lambda| {
-            let caps = lambda
+            let caps: Vec<_> = lambda
                 .captures
                 .iter()
                 .map(|cap| defunc_typ(&cap.typ, env))
                 .collect();
             let binding = env.fresh("captures");
-            let (call_args, arg_typs) = pool
+            let (mut call_args, mut arg_typs): (Vec<_>, Vec<_>) = pool
                 .arguments
                 .iter()
-                .chain(&lambda.captures)
                 .map(|arg| {
                     let typ = defunc_typ(&arg.typ, env);
                     (
@@ -106,6 +121,18 @@ fn pool_caller(pool: &LambdaSetPool, env: &mut Env) -> (Enum, Function) {
                     )
                 })
                 .collect();
+            for (i, cap) in lambda.captures.iter().enumerate() {
+                let typ = defunc_typ(&cap.typ, env);
+                arg_typs.push(typ.clone());
+                call_args.push(Expr::TupleAccess(
+                    Box::new(Expr::Variable {
+                        name: binding.clone(),
+                        generics: Vec::new(),
+                        typ: Type::Tuple(caps.clone()),
+                    }),
+                    i,
+                ))
+            }
             let typ = Type::Function(
                 arg_typs,
                 Box::new(defunc_typ(&pool.result, env)),
@@ -142,7 +169,7 @@ fn pool_caller(pool: &LambdaSetPool, env: &mut Env) -> (Enum, Function) {
         name: call_function_name(&pool.set),
         arguments,
         generics: Vec::new(),
-        result: pool.result.clone(),
+        result: defunc_typ(&pool.result, env),
         body,
     };
     (def, func)
@@ -197,8 +224,11 @@ fn defunc_expr(expr: &mut Expr, env: &mut Env) {
                 let Type::Function(mut args, res, _) = function.typ() else {
                     unreachable!()
                 };
+                for arg in args.iter_mut() {
+                    *arg = defunc_typ(arg, env);
+                }
                 args.push(Type::Variable(env.set_name(set)));
-                Type::Function(args, res, set.clone())
+                Type::Function(args, Box::new(defunc_typ(&res, env)), set.clone())
             };
             defunc_expr(function.as_mut(), env);
             for arg in arguments.iter_mut() {

@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use ir::{
-    base::{Block, Definition, Stmt, Type, Variable},
+    base::{Block, Definition, Enum, Stmt, Struct, Type, Variable},
     hir::Identifier,
-    parsed::Identifier,
 };
 
 #[derive(Default)]
@@ -35,7 +34,7 @@ pub(crate) struct Env {
 impl Env {
     pub(crate) fn enum_def(&mut self, name: Identifier, cases: Vec<(Identifier, Type)>) {
         self.definitions
-            .push(Definition::Enum(ir::base::Enum { name, cases }))
+            .push(Definition::Enum(Enum { name, cases }))
     }
 
     pub(crate) fn tuple_name(&mut self, fields: &[Type]) -> Identifier {
@@ -44,6 +43,10 @@ impl Env {
         } else {
             let name = self.fresh_name("tuple");
             self.tuples.insert(fields.to_vec(), name.clone());
+            self.definitions.push(Definition::Struct(Struct {
+                name: name.clone(),
+                fields: fields.to_vec(),
+            }));
             name
         }
     }

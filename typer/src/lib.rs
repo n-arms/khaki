@@ -22,6 +22,7 @@ pub enum Error {
     ConstructorMismatch(Identifier, Vec<Type>, Identifier, Vec<Type>, Span),
     TypeMismatch(Type, Type),
     UndefinedEnumVariant(Enum, Identifier),
+    CaptureGlobalVariable(Identifier, Identifier),
 }
 
 pub type Result<T> = result::Result<T, Error>;

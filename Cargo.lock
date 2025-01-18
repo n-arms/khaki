@@ -117,6 +117,7 @@ dependencies = [
  "flatten",
  "ir",
  "lambda-set",
+ "lower",
  "parser",
  "typer",
 ]

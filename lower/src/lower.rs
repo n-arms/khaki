@@ -3,7 +3,10 @@ use ir::{
     hir,
 };
 
-use crate::builder::{Builder, Env};
+use crate::{
+    builder::{Builder, Env},
+    sort,
+};
 
 pub fn lower_program(program: &hir::Program) -> Program {
     let mut env = Env::default();
@@ -17,8 +20,10 @@ pub fn lower_program(program: &hir::Program) -> Program {
         .iter()
         .map(|func| lower_function(func, &mut env))
         .collect();
+
+    let definitions = env.definitions();
     Program {
-        definitions: env.definitions(),
+        definitions: sort::sort_definitions(definitions),
         functions,
     }
 }
