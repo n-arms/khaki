@@ -19,6 +19,7 @@ members = [
 [dependencies]
 ir = { path = "ir" }
 parser = { path = "parser" }
+typer = { path = "typer" }
 lambda-set = { path = "lambda-set" }
 flatten = { path = "flatten" }
 codegen = { path = "codegen" }

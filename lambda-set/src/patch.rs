@@ -1,6 +1,6 @@
 use crate::union_find::UnionFind;
 use im::HashMap;
-use ir::parsed::{Argument, Enum, Expr, Function, Identifier, Type};
+use ir::hir::{Argument, Enum, Expr, Function, Identifier, Type};
 
 pub(crate) struct Patcher {
     pub uf: UnionFind,
@@ -92,7 +92,7 @@ fn patch_type_uf(to_patch: &mut Type, patcher: &mut UnionFind) {
                 patch_type_uf(elem, patcher);
             }
         }
-        Type::Constructor(_) => {}
+        Type::Constructor(_, _) => {}
     }
 }
 
@@ -110,10 +110,8 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
     match to_patch {
         Expr::Integer(_) => {}
         Expr::Variable { name, typ, .. } => {
-            if let Some(typ) = typ {
-                patch_type(typ, patcher);
-            }
-            patcher.function_name(name, typ.as_ref().unwrap());
+            patch_type(typ, patcher);
+            patcher.function_name(name, typ);
         }
         Expr::FunctionCall {
             function,
@@ -166,9 +164,15 @@ fn patch_expr(to_patch: &mut Expr, patcher: &mut Patcher) {
             patch_expr(head.as_mut(), patcher);
             for case in cases {
                 patch_expr(&mut case.body, patcher);
-                patch_type(case.binding_type.as_mut().unwrap(), patcher);
+                patch_type(&mut case.binding_type, patcher);
             }
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 

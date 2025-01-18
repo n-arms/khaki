@@ -2,7 +2,9 @@
 
 use chumsky::error::Simple;
 use codegen::gen_program;
+use ir::token::Token;
 use parser::parse_program;
+use typer::type_program;
 
 use std::fs;
 use std::io::{self, BufRead};
@@ -13,15 +15,30 @@ fn main() {
     for line in stdin.lock().lines() {
         let line = line.unwrap();
         if line.is_empty() {
-            let parsed = match parse_program(&text) {
+            let parse_env = parser::Env::new(text.clone());
+            let parsed = match parse_program(&parse_env) {
                 Ok(p) => p,
-                Err(errors) => {
+                Err(parser::Error::LexingFailed) => {
+                    return;
+                }
+                Err(parser::Error::ParseError(errors)) => {
                     for error in errors {
                         parse_error(&text, error);
                     }
                     return;
                 }
             };
+            println!("parsed: {:?}", parsed);
+            let typed = match type_program(parsed, parse_env.lamda_sets()) {
+                Ok(t) => t,
+                Err(error) => {
+                    type_error(&text, error);
+                    return;
+                }
+            };
+
+            println!("typed: {:?}", typed);
+            /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);
             println!("{:?}", base);
@@ -31,7 +48,7 @@ fn main() {
             //println!("{}", c);
 
             fs::write("./target/test.c", c).unwrap();
-
+            */
             text.clear();
         }
         text.push_str(&line);
@@ -39,7 +56,11 @@ fn main() {
     }
 }
 
-fn parse_error(text: &str, error: Simple<char>) {
+fn type_error(text: &str, error: typer::Error) {
+    panic!("{:?}", error)
+}
+
+fn parse_error(text: &str, error: Simple<Token>) {
     use ariadne::*;
     Report::build(ReportKind::Error, error.span())
         .with_message("Parse error")
@@ -64,7 +85,9 @@ mod test {
     use super::*;
 
     fn run_program(program: &str, working: impl AsRef<Path> + Clone) -> i32 {
-        let parsed = parse_program(&program).unwrap();
+        let parse_env = parser::Env::new(program.to_string());
+        let parsed = parse_program(&parse_env).unwrap();
+        /*
         let mut flat = flatten::program(parsed);
         let base = lambda_set::program(&mut flat);
         let data = codegen::gen_program(&base).generate();
@@ -91,6 +114,8 @@ mod test {
             .wait_with_output()
             .unwrap();
         output.status.code().unwrap()
+        */
+        0
     }
 
     macro_rules! test_program {

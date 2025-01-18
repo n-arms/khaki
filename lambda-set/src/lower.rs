@@ -2,7 +2,7 @@ use crate::order;
 use crate::patch::Lambda;
 use im::{HashMap, HashSet};
 use ir::base::{self, Stmt, Variable};
-use ir::parsed::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
+use ir::hir::{Enum, Expr, Function, Identifier, LambdaSet, Program, Type};
 
 #[derive(Clone, Debug)]
 pub(crate) struct LambdaStruct {
@@ -302,7 +302,7 @@ fn lower_type(to_lower: &Type, lower: &mut Lower) -> base::Type {
         Type::Variable(_) => unreachable!(),
         Type::Function(_, _, set) => lower.lambda_set_type(set),
         Type::Tuple(elems) => base::Type::Constructor(lower.tuple_name(elems)),
-        Type::Constructor(name) => base::Type::Constructor(name.clone()),
+        Type::Constructor(name, _) => base::Type::Constructor(name.clone()),
     }
 }
 
@@ -315,7 +315,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
         }
         Expr::Variable { name, typ, .. } => {
             if lower.is_function(name) {
-                let Type::Function(_, _, set) = typ.as_ref().unwrap() else {
+                let Type::Function(_, _, set) = typ else {
                     unreachable!()
                 };
                 let typ = Identifier::from(format!("closure_{}", set.token));
@@ -332,7 +332,7 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                     },
                 );
             } else {
-                return Variable::new(name.clone(), lower_type(typ.as_ref().unwrap(), lower));
+                return Variable::new(name.clone(), lower_type(typ, lower));
             }
         }
         Expr::FunctionCall {
@@ -399,7 +399,9 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 base::Expr::TupleAccess(lowered_tuple, *field),
             );
         }
-        Expr::Enum { typ, tag, argument } => {
+        Expr::Enum {
+            typ, tag, argument, ..
+        } => {
             let lowered_arg = lower_expr(argument.as_ref(), stmts, lower);
             stmts.stmt(
                 result.clone(),
@@ -417,10 +419,8 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 .map(|case| {
                     let mut body = BlockBuilder::default();
                     let case_result = lower_expr(&case.body, &mut body, lower);
-                    let binding = Variable::new(
-                        case.binding.clone(),
-                        lower_type(case.binding_type.as_ref().unwrap(), lower),
-                    );
+                    let binding =
+                        Variable::new(case.binding.clone(), lower_type(&case.binding_type, lower));
                     base::MatchCase {
                         variant: case.variant.clone(),
                         binding,
@@ -436,6 +436,12 @@ fn lower_expr(to_lower: &Expr, stmts: &mut BlockBuilder, lower: &mut Lower) -> V
                 },
             );
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
     result
 }

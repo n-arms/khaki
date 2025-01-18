@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use im::HashMap;
-use ir::parsed::{Argument, Expr, Function, Identifier, MatchCase, Program, Type};
+use ir::hir::{Argument, Expr, Function, Identifier, MatchCase, Program, Type};
 
 #[derive(Clone, Default)]
 pub struct Env {
@@ -132,11 +132,20 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(expr(*tuple, env, bank)), field)
         }
-        Expr::Enum { typ, tag, argument } => Expr::Enum {
+        Expr::Enum {
             typ,
             tag,
-            argument: Box::new(expr(*argument, env, bank)),
-        },
+            generics,
+            argument,
+        } => {
+            assert!(generics.is_empty());
+            Expr::Enum {
+                typ,
+                tag,
+                generics,
+                argument: Box::new(expr(*argument, env, bank)),
+            }
+        }
         Expr::Match { head, cases } => {
             let cases = cases
                 .into_iter()
@@ -150,6 +159,12 @@ fn expr(to_flat: Expr, env: Env, bank: &mut Vec<Function>) -> Expr {
                 head: Box::new(expr(*head, env, bank)),
             }
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 
@@ -166,7 +181,7 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .into_iter()
                 .map(|generic| replace_type(generic, generics.clone()))
                 .collect(),
-            typ: typ.map(|typ| replace_type(typ, generics)),
+            typ: replace_type(typ, generics),
         },
         Expr::FunctionCall {
             function,
@@ -222,11 +237,20 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
         Expr::TupleAccess(tuple, field) => {
             Expr::TupleAccess(Box::new(replace_expr(*tuple, generics)), field)
         }
-        Expr::Enum { typ, tag, argument } => Expr::Enum {
+        Expr::Enum {
             typ,
             tag,
-            argument: Box::new(replace_expr(*argument, generics)),
-        },
+            generics: enum_generics,
+            argument,
+        } => {
+            assert!(enum_generics.is_empty());
+            Expr::Enum {
+                typ,
+                tag,
+                generics: enum_generics,
+                argument: Box::new(replace_expr(*argument, generics)),
+            }
+        }
         Expr::Match { head, cases } => Expr::Match {
             cases: cases
                 .into_iter()
@@ -237,6 +261,12 @@ fn replace_expr(expr: Expr, generics: HashMap<Identifier, Type>) -> Expr {
                 .collect(),
             head: Box::new(replace_expr(*head, generics)),
         },
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
 
@@ -264,6 +294,6 @@ fn replace_type(typ: Type, generics: HashMap<Identifier, Type>) -> Type {
                 .map(|elem| replace_type(elem, generics.clone()))
                 .collect(),
         ),
-        typ @ Type::Constructor(_) => typ,
+        typ @ Type::Constructor(..) => typ,
     }
 }

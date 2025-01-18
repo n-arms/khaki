@@ -2,7 +2,7 @@ use std::collections;
 
 use crate::union_find::UnionFind;
 use im::HashMap;
-use ir::parsed::{Enum, Expr, Function, Identifier, Type};
+use ir::hir::{Enum, Expr, Function, Identifier, Type};
 
 fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
     use Type::*;
@@ -25,7 +25,7 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
                 union_type(e1, e2, uf);
             }
         }
-        (Constructor(name1), Constructor(name2)) if name1 == name2 => {}
+        (Constructor(name1, _), Constructor(name2, _)) if name1 == name2 => {}
         _ => panic!(),
     }
 }
@@ -47,7 +47,7 @@ pub(crate) fn update_type(typ: &mut Type, uf: &mut UnionFind) {
                 update_type(elem, uf);
             }
         }
-        Type::Constructor(_) => {}
+        Type::Constructor(_, _) => {}
     }
 }
 
@@ -96,15 +96,13 @@ fn infer_expr(
 ) -> Type {
     match to_infer {
         Expr::Integer(_) => Type::Integer,
-        Expr::Variable { name, typ, .. } => {
+        Expr::Variable {
+            name, typ: old_typ, ..
+        } => {
             let env_typ = env[name].clone();
-            if let Some(old_typ) = typ {
-                update_type(old_typ, uf);
-                union_type(old_typ, &env_typ, uf);
-            } else {
-                *typ = Some(env_typ);
-            }
-            typ.clone().unwrap()
+            update_type(old_typ, uf);
+            union_type(old_typ, &env_typ, uf);
+            old_typ.clone()
         }
         Expr::FunctionCall {
             function,
@@ -165,7 +163,13 @@ fn infer_expr(
                 unreachable!()
             }
         }
-        Expr::Enum { typ, tag, argument } => {
+        Expr::Enum {
+            typ,
+            tag,
+            generics,
+            argument,
+            ..
+        } => {
             let arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
 
             let enum_def = enums[typ].clone();
@@ -173,13 +177,13 @@ fn infer_expr(
 
             union_type(&arg_typ, variant_typ, uf);
 
-            Type::Constructor(typ.clone())
+            Type::Constructor(typ.clone(), generics.clone())
         }
         Expr::Match { head, cases } => {
             let head_typ = infer_expr(head.as_mut(), env.clone(), uf, enums, closures);
             // TODO: check head type against the patterns being matched
 
-            let Type::Constructor(enum_name) = head_typ else {
+            let Type::Constructor(enum_name, _) = head_typ else {
                 panic!()
             };
             let enum_def = enums[&enum_name].clone();
@@ -189,7 +193,7 @@ fn infer_expr(
                     let mut inner = env.clone();
                     let typ = enum_def.variant_type(&case.variant);
                     inner.insert(case.binding.clone(), typ.clone());
-                    case.binding_type = Some(typ.clone());
+                    case.binding_type = typ.clone();
                     infer_expr(&mut case.body, inner, uf, enums, closures)
                 })
                 .collect();
@@ -198,5 +202,11 @@ fn infer_expr(
             }
             case_typs[0].clone()
         }
+        Expr::Let {
+            name,
+            typ,
+            value,
+            rest,
+        } => todo!(),
     }
 }
