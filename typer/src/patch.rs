@@ -1,5 +1,5 @@
 use ir::{
-    hir::{self, LambdaSet},
+    hir::{self, EnumCase, LambdaSet},
     parsed::{Enum, Expr, Function, Pattern, Program, Type},
     union_find::UnionFind,
 };
@@ -46,7 +46,7 @@ fn patch_enum(def: &Enum, patcher: &mut Patcher) -> (hir::Identifier, hir::Enum)
     let cases = def
         .cases
         .iter()
-        .map(|case| (case.tag.name.clone(), patch_typ(&case.typ, patcher)))
+        .map(|case| EnumCase::new(case.tag.name.clone(), patch_typ(&case.typ, patcher)))
         .collect();
     let generics = def
         .generics

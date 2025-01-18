@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use ir::hir::{Argument, Enum, Expr, Function, Identifier, LambdaSet, MatchCase, Program, Type};
+use ir::hir::{
+    Argument, Enum, EnumCase, Expr, Function, Identifier, LambdaSet, MatchCase, Program, Type,
+};
 
 use crate::pool::LambdaSetPool;
 
@@ -56,8 +58,8 @@ pub fn defunc_program(program: &mut Program, pools: &[LambdaSetPool]) {
 }
 
 fn defunc_enum(def: &mut Enum, env: &mut Env) {
-    for (_, case) in &mut def.cases {
-        *case = defunc_typ(case, env);
+    for case in &mut def.cases {
+        case.typ = defunc_typ(&case.typ, env);
     }
 }
 
@@ -87,7 +89,7 @@ fn pool_caller(pool: &LambdaSetPool, env: &mut Env) -> (Enum, Function) {
                 .iter()
                 .map(|cap| defunc_typ(&cap.typ, env))
                 .collect();
-            (lambda.name.clone(), Type::Tuple(caps))
+            EnumCase::new(lambda.name.clone(), Type::Tuple(caps))
         })
         .collect();
     let def = Enum {

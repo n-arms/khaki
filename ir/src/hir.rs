@@ -55,18 +55,41 @@ impl Function {
 pub struct Enum {
     pub name: Identifier,
     pub generics: Vec<Identifier>,
-    pub cases: Vec<(Identifier, Type)>,
+    pub cases: Vec<EnumCase>,
 }
 
 impl Enum {
     pub fn variant_type(&self, variant: &Identifier) -> &Type {
-        for (name, typ) in &self.cases {
-            if name == variant {
-                return typ;
+        for case in &self.cases {
+            if &case.name == variant {
+                return &case.typ;
             }
         }
         unreachable!()
     }
+}
+
+#[derive(Clone)]
+pub struct EnumCase {
+    pub name: Identifier,
+    pub typ: Type,
+    pub storage: Storage,
+}
+
+impl EnumCase {
+    pub fn new(name: Identifier, typ: Type) -> Self {
+        Self {
+            name,
+            typ,
+            storage: Storage::Inline,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Storage {
+    Inline,
+    ReferenceCounted,
 }
 
 #[derive(Clone)]
@@ -350,7 +373,7 @@ impl fmt::Debug for Enum {
             f,
             self.cases
                 .iter()
-                .map(|(name, typ)| format!("{}({:?})", name.name, typ)),
+                .map(|case| format!("{}({:?})", case.name.name, case.typ)),
         )?;
         writeln!(f, "}}")
     }

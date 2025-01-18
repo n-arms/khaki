@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ir::hir::{Argument, Enum, Expr, Function, Identifier, Program, Type};
+use ir::hir::{Argument, Enum, EnumCase, Expr, Function, Identifier, Program, Type};
 
 pub(crate) struct Env {
     generated: HashMap<Signature, Identifier>,
@@ -62,7 +62,7 @@ impl Env {
         });
     }
 
-    pub(crate) fn def(&mut self, name: Identifier, cases: Vec<(Identifier, Type)>) {
+    pub(crate) fn def(&mut self, name: Identifier, cases: Vec<EnumCase>) {
         println!("def {:?}", name);
         self.enums.push(Enum {
             name,

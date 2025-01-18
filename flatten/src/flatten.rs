@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ir::hir::{Argument, Expr, Identifier, MatchCase, Program, Type};
+use ir::hir::{Argument, EnumCase, Expr, Identifier, MatchCase, Program, Type};
 
 use crate::env::Env;
 
@@ -69,7 +69,7 @@ fn flatten_enum(name: &Identifier, generics: Vec<Type>, env: &mut Env) -> Identi
     let cases = def
         .cases
         .iter()
-        .map(|(name, typ)| (name.clone(), flatten_typ(typ, &subst, env)))
+        .map(|case| EnumCase::new(case.name.clone(), flatten_typ(&case.typ, &subst, env)))
         .collect();
 
     env.def(new_name.clone(), cases);

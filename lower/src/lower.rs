@@ -1,6 +1,6 @@
 use ir::{
     base::{Expr, Function, MatchCase, Program, Stmt, Type, Variable},
-    hir,
+    hir::{self, Storage},
 };
 
 use crate::{
@@ -32,7 +32,13 @@ fn lower_enum(def: &hir::Enum, env: &mut Env) {
     let cases = def
         .cases
         .iter()
-        .map(|(name, typ)| (name.clone(), lower_typ(typ, env)))
+        .map(|case| {
+            if case.storage == Storage::Inline {
+                (case.name.clone(), lower_typ(&case.typ, env))
+            } else {
+                todo!()
+            }
+        })
         .collect();
     env.enum_def(def.name.clone(), cases)
 }
