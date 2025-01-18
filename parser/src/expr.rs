@@ -126,10 +126,16 @@ pub(crate) fn typ<'a>(env: &'a Env) -> parser!('a, Type) {
     recursive::recursive(|typ| {
         let int = token(Kind::Int).map(|token| Type::Integer(token.span));
         let var = identifier(env).map(Type::Rigid);
-        let cons = upper_identifier(env).map(|name| {
-            let span = name.span;
-            Type::Constructor(name, Vec::new(), span)
-        });
+        let cons = upper_identifier(env)
+            .then(square_list_in(typ.clone()).or_not())
+            .map(|(name, maybe_generics)| {
+                let span = name.span;
+                if let Some((end, generics)) = maybe_generics {
+                    Type::Constructor(name, generics, span.merge(end))
+                } else {
+                    Type::Constructor(name, Vec::new(), span)
+                }
+            });
         let func = paren_list_in(typ.clone())
             .then_ignore(token(Kind::ThinArrow))
             .then(typ.clone())

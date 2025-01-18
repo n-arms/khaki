@@ -54,6 +54,7 @@ impl Function {
 #[derive(Clone)]
 pub struct Enum {
     pub name: Identifier,
+    pub generics: Vec<Identifier>,
     pub cases: Vec<(Identifier, Type)>,
 }
 
@@ -147,7 +148,7 @@ impl Expr {
                     unreachable!()
                 }
             }
-            Expr::Enum { typ, .. } => Type::Constructor(typ.clone()),
+            Expr::Enum { typ, generics, .. } => Type::Constructor(typ.clone(), generics.clone()),
             Expr::Match { cases, .. } => cases[0].body.typ(),
         }
     }
@@ -159,7 +160,7 @@ pub enum Type {
     Variable(Identifier),
     Function(Vec<Type>, Box<Type>, LambdaSet),
     Tuple(Vec<Type>),
-    Constructor(Identifier),
+    Constructor(Identifier, Vec<Type>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -316,14 +317,28 @@ impl fmt::Debug for Type {
                 comma_list(f, elems)?;
                 write!(f, "|>")
             }
-            Type::Constructor(name) => write!(f, "{:?}", name),
+            Type::Constructor(name, generics) => {
+                if generics.is_empty() {
+                    write!(f, "{:?}", name)
+                } else {
+                    write!(f, "{:?}[", name)?;
+                    comma_list(f, generics)?;
+                    write!(f, "]")
+                }
+            }
         }
     }
 }
 
 impl fmt::Debug for Enum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "enum {} {{", self.name.name)?;
+        write!(f, "enum {}", self.name.name)?;
+        if !self.generics.is_empty() {
+            write!(f, "[")?;
+            comma_list(f, &self.generics)?;
+            write!(f, "]")?;
+        }
+        write!(f, " {{")?;
         comma_list(
             f,
             self.cases

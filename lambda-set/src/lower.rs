@@ -302,7 +302,7 @@ fn lower_type(to_lower: &Type, lower: &mut Lower) -> base::Type {
         Type::Variable(_) => unreachable!(),
         Type::Function(_, _, set) => lower.lambda_set_type(set),
         Type::Tuple(elems) => base::Type::Constructor(lower.tuple_name(elems)),
-        Type::Constructor(name) => base::Type::Constructor(name.clone()),
+        Type::Constructor(name, _) => base::Type::Constructor(name.clone()),
     }
 }
 

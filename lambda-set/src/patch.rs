@@ -92,7 +92,7 @@ fn patch_type_uf(to_patch: &mut Type, patcher: &mut UnionFind) {
                 patch_type_uf(elem, patcher);
             }
         }
-        Type::Constructor(_) => {}
+        Type::Constructor(_, _) => {}
     }
 }
 

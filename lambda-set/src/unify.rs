@@ -25,7 +25,7 @@ fn union_type(ty1: &Type, ty2: &Type, uf: &mut UnionFind) {
                 union_type(e1, e2, uf);
             }
         }
-        (Constructor(name1), Constructor(name2)) if name1 == name2 => {}
+        (Constructor(name1, _), Constructor(name2, _)) if name1 == name2 => {}
         _ => panic!(),
     }
 }
@@ -47,7 +47,7 @@ pub(crate) fn update_type(typ: &mut Type, uf: &mut UnionFind) {
                 update_type(elem, uf);
             }
         }
-        Type::Constructor(_) => {}
+        Type::Constructor(_, _) => {}
     }
 }
 
@@ -164,7 +164,11 @@ fn infer_expr(
             }
         }
         Expr::Enum {
-            typ, tag, argument, ..
+            typ,
+            tag,
+            generics,
+            argument,
+            ..
         } => {
             let arg_typ = infer_expr(argument.as_mut(), env, uf, enums, closures);
 
@@ -173,13 +177,13 @@ fn infer_expr(
 
             union_type(&arg_typ, variant_typ, uf);
 
-            Type::Constructor(typ.clone())
+            Type::Constructor(typ.clone(), generics.clone())
         }
         Expr::Match { head, cases } => {
             let head_typ = infer_expr(head.as_mut(), env.clone(), uf, enums, closures);
             // TODO: check head type against the patterns being matched
 
-            let Type::Constructor(enum_name) = head_typ else {
+            let Type::Constructor(enum_name, _) = head_typ else {
                 panic!()
             };
             let enum_def = enums[&enum_name].clone();

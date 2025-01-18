@@ -60,6 +60,11 @@ fn function<'a>(env: &'a Env) -> parser!('a, Function) {
 fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
     token(Kind::Enum)
         .then(upper_identifier(env))
+        .then(
+            square_list(identifier(env))
+                .or_not()
+                .map(|list| list.unwrap_or_default()),
+        )
         .then(brace_list_in(
             identifier(env)
                 .then_ignore(token(Kind::LeftParen))
@@ -71,12 +76,11 @@ fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
                     typ,
                 }),
         ))
-        .map(|((start, name), (end, cases))| Enum {
+        .map(|(((start, name), generics), (end, cases))| Enum {
             name,
             cases,
             span: start.span.merge(end),
-            // todo: parse generics
-            generics: Vec::new(),
+            generics,
         })
 }
 

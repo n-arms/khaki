@@ -282,6 +282,6 @@ fn replace_type(typ: Type, generics: HashMap<Identifier, Type>) -> Type {
                 .map(|elem| replace_type(elem, generics.clone()))
                 .collect(),
         ),
-        typ @ Type::Constructor(_) => typ,
+        typ @ Type::Constructor(..) => typ,
     }
 }

@@ -48,8 +48,14 @@ fn patch_enum(def: &Enum, patcher: &mut Patcher) -> (hir::Identifier, hir::Enum)
         .iter()
         .map(|case| (case.tag.name.clone(), patch_typ(&case.typ, patcher)))
         .collect();
+    let generics = def
+        .generics
+        .iter()
+        .map(|generic| generic.name.clone())
+        .collect();
     let def = hir::Enum {
         name: def.name.name.clone(),
+        generics,
         cases,
     };
     (def.name.clone(), def)
@@ -121,12 +127,12 @@ fn patch_typ(typ: &Type, patcher: &mut Patcher) -> hir::Type {
         Type::Tuple(elems, _) => {
             hir::Type::Tuple(elems.iter().map(|elem| patch_typ(elem, patcher)).collect())
         }
-        Type::Constructor(name, args, _) => {
-            if args.is_empty() {
-                hir::Type::Constructor(name.name.clone())
-            } else {
-                todo!()
-            }
+        Type::Constructor(name, generics, _) => {
+            let hir_generics = generics
+                .iter()
+                .map(|generic| patch_typ(generic, patcher))
+                .collect();
+            hir::Type::Constructor(name.name.clone(), hir_generics)
         }
     }
 }
