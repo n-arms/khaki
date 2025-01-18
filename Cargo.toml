@@ -14,7 +14,8 @@ members = [
   "typer",
   "flatten",
   "codegen", 
-  "lambda-set"]
+  "lambda-set",
+  "lower"]
 
 [dependencies]
 ir = { path = "ir" }
