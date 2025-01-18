@@ -33,7 +33,7 @@ pub struct Enum {
     pub cases: Vec<(Identifier, Type)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Constructor(Identifier),
     Integer,
