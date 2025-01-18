@@ -150,8 +150,13 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
             generics: func_generics,
             typ,
         } => {
+            let flat_typ = flatten_typ(typ, generics, env);
             if func_generics.is_empty() {
-                expr.clone()
+                Expr::Variable {
+                    name: name.clone(),
+                    generics: Vec::new(),
+                    typ: flat_typ,
+                }
             } else {
                 let flat_generics = func_generics
                     .iter()
@@ -160,7 +165,7 @@ fn flatten_expr(expr: &Expr, generics: &Subst, env: &mut Env) -> Expr {
                 Expr::Variable {
                     name: flatten_function(name, flat_generics, env),
                     generics: Vec::new(),
-                    typ: typ.clone(),
+                    typ: flat_typ,
                 }
             }
         }

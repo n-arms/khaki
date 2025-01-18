@@ -14,14 +14,16 @@ members = [
   "typer",
   "flatten",
   "codegen", 
-  "lambda-set"]
+  "lambda-set",
+  "lower"]
 
 [dependencies]
 ir = { path = "ir" }
 parser = { path = "parser" }
 typer = { path = "typer" }
-lambda-set = { path = "lambda-set" }
 flatten = { path = "flatten" }
+lambda-set = { path = "lambda-set" }
+lower = { path = "lower" }
 codegen = { path = "codegen" }
 ariadne = "0.5.0"
 chumsky = "0.9.3"

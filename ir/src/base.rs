@@ -33,7 +33,7 @@ pub struct Enum {
     pub cases: Vec<(Identifier, Type)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Constructor(Identifier),
     Integer,
@@ -189,7 +189,7 @@ impl Expr {
 
 impl Block {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{{\n")?;
+        writeln!(f, "{{")?;
 
         for stmt in &self.stmts {
             stmt.fmt(ind + 1, f)?;

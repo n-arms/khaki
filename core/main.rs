@@ -1,13 +1,18 @@
 #![deny(clippy::all)]
 
 use chumsky::error::Simple;
+use codegen::gen_program;
 use flatten::flatten_program;
 use ir::token::Token;
 use lambda_set::defunctionalize_program;
+use lower::lower_program;
 use parser::parse_program;
 use typer::type_program;
 
-use std::io::{self, BufRead};
+use std::{
+    fs,
+    io::{self, BufRead},
+};
 
 fn main() {
     let stdin = io::stdin();
@@ -46,17 +51,16 @@ fn main() {
             defunctionalize_program(&mut flat);
 
             println!("defunc: {:?}", flat);
-            /*
-            let mut flat = flatten::program(parsed);
-            let base = lambda_set::program(&mut flat);
-            println!("{:?}", base);
+
+            let base = lower_program(&flat);
+
+            println!("lowered {:?}", base);
 
             let c = gen_program(&base).generate();
 
-            //println!("{}", c);
+            println!("{}", c);
 
             fs::write("./target/test.c", c).unwrap();
-            */
             text.clear();
         }
         text.push_str(&line);
@@ -92,14 +96,49 @@ mod test {
 
     use super::*;
 
+    fn compile_program(text: &str) -> String {
+        let parse_env = parser::Env::new(text.to_string());
+        let parsed = match parse_program(&parse_env) {
+            Ok(p) => p,
+            Err(parser::Error::LexingFailed) => {
+                panic!("lexing failed")
+            }
+            Err(parser::Error::ParseError(errors)) => {
+                for error in errors {
+                    println!("{:?}", error);
+                }
+                panic!("parse error")
+            }
+        };
+        println!("parsed: {:?}", parsed);
+        let typed = match type_program(parsed, parse_env.lamda_sets()) {
+            Ok(t) => t,
+            Err(error) => {
+                type_error(&text, error);
+                panic!("type error")
+            }
+        };
+
+        println!("typed: {:?}", typed);
+
+        let mut flat = flatten_program(&typed);
+
+        println!("flat: {:?}", flat);
+
+        defunctionalize_program(&mut flat);
+
+        println!("defunc: {:?}", flat);
+
+        let base = lower_program(&flat);
+
+        println!("lowered {:?}", base);
+
+        gen_program(&base).generate()
+    }
+
     fn run_program(program: &str, working: impl AsRef<Path> + Clone) -> i32 {
-        let parse_env = parser::Env::new(program.to_string());
-        let parsed = parse_program(&parse_env).unwrap();
-        /*
-        let mut flat = flatten::program(parsed);
-        let base = lambda_set::program(&mut flat);
-        let data = codegen::gen_program(&base).generate();
-        println!("{}", data);
+        let data = compile_program(program);
+        println!("{:?}", data);
         let name = format!("test{}", program.len());
         let mut source = working.as_ref().to_path_buf();
         source.push(name.clone());
@@ -122,8 +161,6 @@ mod test {
             .wait_with_output()
             .unwrap();
         output.status.code().unwrap()
-        */
-        0
     }
 
     macro_rules! test_program {
@@ -163,24 +200,32 @@ mod test {
         test_program!(
             r#"
                 fn id[t](x: t) -> t = x
-                fn main() -> Int = id[Int](4)
+                fn main() -> Int = id(4)
             "#,
             4
         );
     }
-
     #[test]
     fn func_type() {
         test_program!(
             r#"
-                fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
-                fn const[a, b](x: a) -> (b) -> a = [x: a](y: b) -> a = x
-                fn main() -> Int = const[Int, Int](5)(6)
+                fn const[a, b](x: a) -> (b) -> a = [x](y: b) -> a = x
+                fn main() -> Int = const(5)(6)
             "#,
             5
         );
     }
-
+    #[test]
+    fn overlapping_functions() {
+        test_program!(
+            r#"
+                fn twice() -> (Int) -> Int = [](x: Int) -> Int = x
+                fn const[a, b](x: a) -> (b) -> a = [x](y: b) -> a = x
+                fn main() -> Int = const(5)(6)
+            "#,
+            5
+        );
+    }
     #[test]
     fn calling_closures() {
         test_program!(
@@ -190,7 +235,6 @@ mod test {
             7
         );
     }
-
     #[test]
     fn calling_higher_order() {
         test_program!(
@@ -206,7 +250,7 @@ mod test {
     fn captures() {
         test_program!(
             r#"
-                fn f(x: Int) -> Int = ([x: Int](y: Int) -> Int = x)(5)
+                fn f(x: Int) -> Int = ([x](y: Int) -> Int = x)(5)
                 fn main() -> Int = f(9)
             "#,
             9
@@ -218,7 +262,7 @@ mod test {
         test_program!(
             r#"
                 fn swap[a, b](tuple: <|a, b|>) -> <|b, a|> = <|tuple.1, tuple.0|>
-                fn main() -> Int = swap[Int, Int](<|10, 11|>).0
+                fn main() -> Int = swap(<|10, 11|>).0
             "#,
             11
         );
@@ -308,7 +352,7 @@ mod test {
                 }
                 fn main() -> Int = match <|Thunk::f([]() -> Int = 16), Thunk::f([]() -> Int = 17)|>.0 {
                     f(x) => x()
-                }       
+                }
             "#,
             16
         )

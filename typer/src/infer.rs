@@ -148,6 +148,7 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
         (
             Expr::Function {
                 arguments,
+                captures,
                 result,
                 body,
                 set,
@@ -165,6 +166,13 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
                     arg.typ = Some(arg_typ.clone());
                 }
                 inner = check_pattern(&mut arg.binding, arg_typ, inner)?;
+            }
+            for cap in captures {
+                let Variable { name, typ: scheme } = env.lookup_variable(&cap.name)?;
+                let Scheme::Type(cap_typ) = scheme else {
+                    return Err(Error::CaptureGlobalVariable(cap.name.clone(), name.clone()));
+                };
+                cap.typ = Some(cap_typ.clone())
             }
             if let Some(defined_result) = result.as_ref() {
                 unify(res_type, defined_result, defined_result.span(), &mut env)?;
@@ -232,6 +240,7 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
         }
         Expr::Function {
             arguments,
+            captures,
             result,
             body,
             set,
@@ -250,6 +259,13 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
                     typ
                 };
                 arg_types.push(typ);
+            }
+            for cap in captures {
+                let Variable { name, typ: scheme } = env.lookup_variable(&cap.name)?;
+                let Scheme::Type(cap_typ) = scheme else {
+                    return Err(Error::CaptureGlobalVariable(cap.name.clone(), name.clone()));
+                };
+                cap.typ = Some(cap_typ.clone())
             }
             let result_typ = if let Some(result_typ) = result.as_ref() {
                 check_expr(body.as_mut(), result_typ, env)?;
@@ -304,6 +320,7 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
             for case in cases.iter_mut() {
                 let mut inner = env.clone();
                 let (binding_typ, binding_generics) = variant_type(def, &case.variant, &mut inner)?;
+                case.typ = Some(binding_typ.clone());
                 for (binding, typ) in binding_generics.iter().zip(generics.iter()) {
                     unify(typ, binding, case.span, &mut inner)?;
                 }
