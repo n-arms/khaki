@@ -139,7 +139,7 @@ fn infer_function(func: &mut Function, mut env: Env) -> Result<()> {
 fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
     match (expr, typ) {
         (Expr::Integer(_, _), Type::Integer(_)) => Ok(()),
-        (Expr::Variable(name, var_typ), typ) => {
+        (Expr::Variable(name, var_generics, var_typ), typ) => {
             let Variable {
                 name: env_name,
                 typ: scheme,
@@ -194,7 +194,7 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
 fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
     match expr {
         Expr::Integer(_, span) => Ok(Type::Integer(*span)),
-        Expr::Variable(name, _typ) => {
+        Expr::Variable(name, var_generics, _typ) => {
             let Variable {
                 name: env_name,
                 typ: scheme,

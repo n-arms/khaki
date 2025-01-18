@@ -12,6 +12,7 @@ use ir::{
 };
 use patch::{patch_program, Patcher};
 
+#[derive(Debug)]
 pub enum Error {
     DuplicateEnumDefinition(Identifier, Identifier),
     UnknownEnum(Identifier),

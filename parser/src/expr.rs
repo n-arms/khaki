@@ -65,6 +65,7 @@ pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
             variant,
             binding,
             body,
+            typ: None,
         });
     let match_ = token(Kind::Match)
         .then(expr.clone())

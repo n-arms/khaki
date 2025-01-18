@@ -106,6 +106,7 @@ pub struct ClosureArgument {
 pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Pattern,
+    pub typ: Option<Type>,
     pub body: Expr,
     pub span: Span,
 }
@@ -177,6 +178,15 @@ impl Pattern {
         match self {
             Pattern::Variable(name, _) => name.span,
             Pattern::Tuple(_, span) => *span,
+        }
+    }
+
+    pub fn typ(&self) -> Type {
+        match self {
+            Pattern::Variable(_, typ) => typ.clone().unwrap(),
+            Pattern::Tuple(patterns, span) => {
+                Type::Tuple(patterns.iter().map(Pattern::typ).collect(), span.clone())
+            }
         }
     }
 }
@@ -492,5 +502,11 @@ impl fmt::Debug for Program {
             writeln!(f, "{:?}", func)?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}..={}", self.start, self.end)
     }
 }

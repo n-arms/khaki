@@ -126,6 +126,10 @@ impl Env {
         self.names.set(token + 1);
         Identifier::new(format!("{prefix}_{token}"), span)
     }
+
+    pub fn lamda_sets(&self) -> usize {
+        self.lambda_sets.get()
+    }
 }
 
 impl Index<RangeInclusive<usize>> for Env {

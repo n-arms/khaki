@@ -60,7 +60,7 @@ fn patch_function(func: &Function, patcher: &mut Patcher) -> hir::Function {
     let arguments = func
         .arguments
         .iter()
-        .map(|arg| patch_arg(arg, patcher, &mut lets))
+        .map(|arg| patch_arg(&arg.binding, &arg.typ, patcher, &mut lets))
         .collect();
     assert_eq!(lets.len(), 0);
     let generics = func
@@ -80,19 +80,20 @@ fn patch_function(func: &Function, patcher: &mut Patcher) -> hir::Function {
 }
 
 fn patch_arg(
-
+    arg_binding: &Pattern,
+    arg_typ: &Type,
     patcher: &mut Patcher,
     lets: &mut Vec<(hir::Identifier, hir::Type, hir::Expr)>,
 ) -> hir::Argument {
     let arg_name = patcher.fresh_var("arg");
-    let typ = patch_typ(&arg.typ, patcher);
+    let typ = patch_typ(arg_typ, patcher);
     lets.extend(bind_pattern(
         hir::Expr::Variable {
             name: arg_name.clone(),
             generics: Vec::new(),
             typ: Some(typ.clone()),
         },
-        &arg.binding,
+        arg_binding,
         patcher,
     ));
     hir::Argument {
@@ -172,7 +173,7 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
             function,
             set,
             arguments,
-            span,
+            ..
         } => hir::Expr::FunctionCall {
             function: Box::new(patch_expr(function.as_ref(), patcher)),
             set: patcher.lambda_set_root(set.clone()),
@@ -188,26 +189,80 @@ fn patch_expr(expr: &Expr, patcher: &mut Patcher) -> hir::Expr {
             body,
             set,
             name,
-            span,
+            ..
         } => {
-            let hir_captures = captures.iter().map(|cap| hir::Argument {
-                name: cap.name.name.clone(),
-                typ: patch_typ(cap.typ, patcher),
-            }).collect();
-            let hir_arguments = arguments.iter().map(|arg| hir::Argument {
-                name: arg.name,
-                typ: todo!(),
-            }).collect();
-            hir::Expr::Function { captures: hir_captures, arguments: , result: , body: , set: , name:  }
-        },
-        Expr::Tuple(_, _) => todo!(),
-        Expr::TupleAccess(_, _, _) => todo!(),
+            let hir_captures = captures
+                .iter()
+                .map(|cap| hir::Argument {
+                    name: cap.name.clone(),
+                    typ: patch_typ(todo!(), patcher),
+                })
+                .collect();
+            let mut lets = Vec::new();
+            let hir_arguments = arguments
+                .iter()
+                .map(|arg| patch_arg(&arg.binding, arg.typ.as_ref().unwrap(), patcher, &mut lets))
+                .collect();
+            let hir_result = patch_typ(result.as_ref().unwrap(), patcher);
+            let hir_body = patch_expr(body.as_ref(), patcher);
+            assert!(lets.is_empty());
+            hir::Expr::Function {
+                captures: hir_captures,
+                arguments: hir_arguments,
+                result: hir_result,
+                body: Box::new(hir_body),
+                set: set.clone(),
+                name: name.name.clone(),
+            }
+        }
+        Expr::Tuple(elems, _) => {
+            let hir_elems = elems.iter().map(|elem| patch_expr(elem, patcher)).collect();
+            hir::Expr::Tuple(hir_elems)
+        }
+        Expr::TupleAccess(tuple, field, _) => {
+            let hir_tuple = patch_expr(tuple, patcher);
+            hir::Expr::TupleAccess(Box::new(hir_tuple), *field)
+        }
         Expr::Enum {
-            typ,
-            tag,
-            argument,
-            span,
-        } => todo!(),
-        Expr::Match { head, cases, span } => todo!(),
+            typ, tag, argument, ..
+        } => {
+            let hir_arg = patch_expr(argument.as_ref(), patcher);
+            hir::Expr::Enum {
+                typ: typ.name.clone(),
+                tag: tag.name.clone(),
+                argument: Box::new(hir_arg),
+            }
+        }
+        Expr::Match { head, cases, .. } => {
+            let hir_head = patch_expr(head.as_ref(), patcher);
+            let hir_cases = cases
+                .iter()
+                .map(|case| {
+                    let binding = patcher.fresh_var("case");
+                    let binding_type = patch_typ(case.typ.as_ref().unwrap(), patcher);
+                    let lets = bind_pattern(
+                        hir::Expr::Variable {
+                            name: binding.clone(),
+                            generics: Vec::new(),
+                            typ: Some(binding_type.clone()),
+                        },
+                        &case.binding,
+                        patcher,
+                    );
+                    assert!(lets.is_empty());
+                    let body = patch_expr(&case.body, patcher);
+                    hir::MatchCase {
+                        variant: case.variant.name.clone(),
+                        binding,
+                        binding_type: Some(binding_type),
+                        body,
+                    }
+                })
+                .collect();
+            hir::Expr::Match {
+                head: Box::new(hir_head),
+                cases: hir_cases,
+            }
+        }
     }
 }

@@ -118,6 +118,7 @@ dependencies = [
  "ir",
  "lambda-set",
  "parser",
+ "typer",
 ]
 
 [[package]]

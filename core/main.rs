@@ -4,6 +4,7 @@ use chumsky::error::Simple;
 use codegen::gen_program;
 use ir::token::Token;
 use parser::parse_program;
+use typer::type_program;
 
 use std::fs;
 use std::io::{self, BufRead};
@@ -28,6 +29,15 @@ fn main() {
                 }
             };
             println!("{:?}", parsed);
+            let typed = match type_program(parsed, parse_env.lamda_sets()) {
+                Ok(t) => t,
+                Err(error) => {
+                    type_error(&text, error);
+                    return;
+                }
+            };
+
+            println!("{:?}", typed);
             /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);
@@ -44,6 +54,10 @@ fn main() {
         text.push_str(&line);
         text.push('\n');
     }
+}
+
+fn type_error(text: &str, error: typer::Error) {
+    panic!("{:?}", error)
 }
 
 fn parse_error(text: &str, error: Simple<Token>) {
