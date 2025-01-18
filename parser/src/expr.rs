@@ -24,7 +24,7 @@ pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
         println!("{:?} and {:?}", &env[token], token);
         Expr::Integer(env[token].parse().unwrap(), token.span)
     });
-    let variable = identifier(env).map(Expr::Variable);
+    let variable = identifier(env).map(|name| Expr::Variable(name, Vec::new(), None));
     let function = square_list_in(identifier(env))
         .then(paren_list(closure_argument(env)))
         .then(token(Kind::ThinArrow).ignore_then(typ(env)).or_not())
@@ -125,8 +125,11 @@ fn closure_argument<'a>(env: &'a Env) -> parser!('a, ClosureArgument) {
 pub(crate) fn typ<'a>(env: &'a Env) -> parser!('a, Type) {
     recursive::recursive(|typ| {
         let int = token(Kind::Int).map(|token| Type::Integer(token.span));
-        let var = identifier(env).map(|name| Type::Variable(VariableCell::new(name)));
-        let cons = upper_identifier(env).map(Type::Constructor);
+        let var = identifier(env).map(Type::Rigid);
+        let cons = upper_identifier(env).map(|name| {
+            let span = name.span;
+            Type::Constructor(name, Vec::new(), span)
+        });
         let func = paren_list_in(typ.clone())
             .then_ignore(token(Kind::ThinArrow))
             .then(typ.clone())

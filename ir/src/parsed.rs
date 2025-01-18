@@ -64,7 +64,7 @@ pub struct Argument {
 #[derive(Clone)]
 pub enum Expr {
     Integer(i32, Span),
-    Variable(Identifier, Option<Type>),
+    Variable(Identifier, Vec<Type>, Option<Type>),
     FunctionCall {
         function: Box<Expr>,
         set: LambdaSet,
@@ -322,7 +322,7 @@ impl Expr {
     pub fn fmt(&self, ind: usize, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expr::Integer(int, _) => write!(f, "{int}"),
-            Expr::Variable(name, _) => write!(f, "{:?}", name),
+            Expr::Variable(name, _, _) => write!(f, "{:?}", name),
             Expr::FunctionCall {
                 function,
                 set,
@@ -415,7 +415,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Expr::Integer(_, span) => *span,
-            Expr::Variable(name, _) => name.span,
+            Expr::Variable(name, _, _) => name.span,
             Expr::FunctionCall { span, .. } => *span,
             Expr::Function { span, .. } => *span,
             Expr::Tuple(_, span) => *span,
