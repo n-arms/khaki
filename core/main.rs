@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 
 use chumsky::error::Simple;
+use flatten::flatten_program;
 use ir::token::Token;
 use parser::parse_program;
 use typer::type_program;
@@ -36,6 +37,10 @@ fn main() {
             };
 
             println!("typed: {:?}", typed);
+
+            let flat = flatten_program(&typed);
+
+            println!("flat: {:?}", flat);
             /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);
