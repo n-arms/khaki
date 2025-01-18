@@ -39,9 +39,13 @@ fn main() {
 
             println!("typed: {:?}", typed);
 
-            let flat = flatten_program(&typed);
+            let mut flat = flatten_program(&typed);
 
             println!("flat: {:?}", flat);
+
+            defunctionalize_program(&mut flat);
+
+            println!("defunc: {:?}", flat);
             /*
             let mut flat = flatten::program(parsed);
             let base = lambda_set::program(&mut flat);

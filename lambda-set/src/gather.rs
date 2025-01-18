@@ -68,7 +68,20 @@ fn gather_expr(
 ) {
     match expr {
         Expr::Integer(_) => {}
-        Expr::Variable { .. } => {}
+        Expr::Variable { name, typ, .. } => {
+            if let Some(function) = functions.get(name) {
+                let Type::Function(_, _, set) = typ else {
+                    unreachable!("expected function type, got {:?}", typ)
+                };
+                pools.lambda(
+                    set,
+                    name.clone(),
+                    Vec::new(),
+                    &function.arguments,
+                    &function.result,
+                )
+            }
+        }
         Expr::FunctionCall {
             function,
             arguments,

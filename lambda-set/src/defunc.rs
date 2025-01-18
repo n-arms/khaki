@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ir::hir::{Argument, Enum, Expr, Function, Identifier, LambdaSet, MatchCase, Program, Type};
 
@@ -7,13 +7,15 @@ use crate::pool::LambdaSetPool;
 struct Env {
     names: usize,
     set_names: HashMap<LambdaSet, Identifier>,
+    functions: HashSet<Identifier>,
 }
 
 impl Env {
-    pub fn new() -> Self {
+    pub fn new(functions: impl IntoIterator<Item = Identifier>) -> Self {
         Self {
             names: 0,
             set_names: HashMap::new(),
+            functions: functions.into_iter().collect(),
         }
     }
 
@@ -32,17 +34,21 @@ impl Env {
             name
         }
     }
+
+    fn is_function(&self, name: &Identifier) -> bool {
+        self.functions.contains(name)
+    }
 }
 
 pub fn defunc_program(program: &mut Program, pools: &[LambdaSetPool]) {
-    let mut env = Env::new();
+    let mut env = Env::new(program.functions.iter().map(|func| func.name.clone()));
+    for function in &mut program.functions {
+        defunc_function(function, &mut env);
+    }
     for pool in pools {
         let (def, func) = pool_caller(pool, &mut env);
         program.enums.insert(def.name.clone(), def);
         program.functions.push(func);
-    }
-    for function in &mut program.functions {
-        defunc_function(function, &mut env);
     }
 }
 
@@ -166,17 +172,27 @@ fn defunc_function(function: &mut Function, env: &mut Env) {
 fn defunc_expr(expr: &mut Expr, env: &mut Env) {
     match expr {
         Expr::Integer(_) => {}
-        Expr::Variable { typ, .. } => *typ = defunc_typ(typ, env),
+        Expr::Variable { name, typ, .. } => {
+            if env.is_function(name) {
+                let Type::Function(_, _, set) = typ else {
+                    unreachable!()
+                };
+
+                *expr = Expr::Enum {
+                    typ: env.set_name(&set),
+                    tag: name.clone(),
+                    generics: Vec::new(),
+                    argument: Box::new(Expr::Tuple(Vec::new())),
+                };
+            } else {
+                *typ = defunc_typ(typ, env)
+            }
+        }
         Expr::FunctionCall {
             function,
             set,
             arguments,
         } => {
-            defunc_expr(function.as_mut(), env);
-            for arg in arguments.iter_mut() {
-                defunc_expr(arg, env);
-            }
-            arguments.push(*function.clone());
             let typ = {
                 let Type::Function(mut args, res, _) = function.typ() else {
                     unreachable!()
@@ -184,8 +200,13 @@ fn defunc_expr(expr: &mut Expr, env: &mut Env) {
                 args.push(Type::Variable(env.set_name(set)));
                 Type::Function(args, res, set.clone())
             };
+            defunc_expr(function.as_mut(), env);
+            for arg in arguments.iter_mut() {
+                defunc_expr(arg, env);
+            }
+            arguments.push(*function.clone());
             *function.as_mut() = Expr::Variable {
-                name: env.set_name(&set),
+                name: call_function_name(set),
                 generics: Vec::new(),
                 typ,
             };
