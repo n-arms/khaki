@@ -15,7 +15,7 @@ members = [
   "flatten",
   "codegen", 
   "lambda-set",
-  "lower"]
+  "lower", "ref-count"]
 
 [dependencies]
 ir = { path = "ir" }
@@ -24,6 +24,7 @@ typer = { path = "typer" }
 flatten = { path = "flatten" }
 lambda-set = { path = "lambda-set" }
 lower = { path = "lower" }
+ref-count = { path = "ref-count" }
 codegen = { path = "codegen" }
 ariadne = "0.5.0"
 chumsky = "0.9.3"
