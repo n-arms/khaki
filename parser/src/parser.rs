@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 macro_rules! parser {
     ($l:lifetime, $t:ty) => {
         impl chumsky::Parser<ir::token::Token, $t, Error = chumsky::prelude::Simple<ir::token::Token>> + Clone + $l
@@ -11,13 +13,7 @@ use std::{
     ops::{Index, RangeInclusive},
 };
 
-use chumsky::{
-    prelude::Simple,
-    primitive::{end, filter, just},
-    recursive::{self, Recursive},
-    text::{int, keyword, whitespace},
-    Parser,
-};
+use chumsky::{primitive::filter, Parser};
 use ir::{
     parsed::{Identifier, LambdaSet, Span},
     token::{Kind, Token},
@@ -80,12 +76,12 @@ pub(crate) fn tuple_list<'a, T: 'a>(element: parser!('a, T)) -> parser!('a, Vec<
     tuple_list_in(element).map(|(_, list)| list)
 }
 
-pub(crate) fn identifier<'a>(env: &'a Env) -> parser!('a, Identifier) {
+pub(crate) fn identifier(env: &Env) -> parser!('_, Identifier) {
     token(Kind::LowerIdentifier)
         .map(|token| Identifier::new(env[token.span.range()].to_string(), token.span))
 }
 
-pub(crate) fn upper_identifier<'a>(env: &'a Env) -> parser!('a, Identifier) {
+pub(crate) fn upper_identifier(env: &Env) -> parser!('_, Identifier) {
     token(Kind::UpperIdentifier)
         .map(|token| Identifier::new(env[token.span.range()].to_string(), token.span))
 }

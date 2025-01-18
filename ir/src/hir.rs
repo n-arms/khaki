@@ -185,9 +185,9 @@ impl LambdaSet {
     }
 }
 
-impl Into<usize> for LambdaSet {
-    fn into(self) -> usize {
-        self.token
+impl From<LambdaSet> for usize {
+    fn from(value: LambdaSet) -> Self {
+        value.token
     }
 }
 

@@ -30,7 +30,7 @@ impl Subst {
                 .unwrap_or_else(|| to_subst.clone()),
             Type::Function(args, res, set, span) => Type::Function(
                 args.iter().map(|arg| self.typ(arg)).collect(),
-                Box::new(self.typ(&res)),
+                Box::new(self.typ(res)),
                 set.clone(),
                 *span,
             ),

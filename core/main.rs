@@ -1,12 +1,10 @@
 #![deny(clippy::all)]
 
 use chumsky::error::Simple;
-use codegen::gen_program;
 use ir::token::Token;
 use parser::parse_program;
 use typer::type_program;
 
-use std::fs;
 use std::io::{self, BufRead};
 
 fn main() {
@@ -56,7 +54,7 @@ fn main() {
     }
 }
 
-fn type_error(text: &str, error: typer::Error) {
+fn type_error(_text: &str, error: typer::Error) {
     panic!("{:?}", error)
 }
 

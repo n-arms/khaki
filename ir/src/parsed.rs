@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     cell::{Ref, RefCell},
     cmp::Ordering,
     collections::HashMap,
@@ -149,7 +148,7 @@ impl Function {
             self.arguments.iter().map(|arg| arg.typ.clone()).collect(),
             Box::new(self.result.clone()),
             self.set.clone(),
-            self.span.clone(),
+            self.span,
         )
     }
 }
@@ -192,7 +191,7 @@ impl Pattern {
         match self {
             Pattern::Variable(_, typ) => typ.clone().unwrap(),
             Pattern::Tuple(patterns, span) => {
-                Type::Tuple(patterns.iter().map(Pattern::typ).collect(), span.clone())
+                Type::Tuple(patterns.iter().map(Pattern::typ).collect(), *span)
             }
         }
     }

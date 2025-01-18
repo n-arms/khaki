@@ -8,7 +8,6 @@ pub use infer::infer_program;
 use ir::{
     hir,
     parsed::{self, Enum, Identifier, Pattern, Span, Type},
-    union_find::UnionFind,
 };
 use patch::{patch_program, Patcher};
 

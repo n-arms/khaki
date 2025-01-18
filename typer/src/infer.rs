@@ -142,15 +142,13 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
     match (expr, typ) {
         (
             Expr::Function {
-                captures,
                 arguments,
                 result,
                 body,
                 set,
-                name,
-                span,
+                ..
             },
-            Type::Function(arg_types, res_type, type_set, type_span),
+            Type::Function(arg_types, res_type, type_set, _),
         ) => {
             env.unify_set(set.clone(), type_set.clone());
 
@@ -161,10 +159,10 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
                 } else {
                     arg.typ = Some(arg_typ.clone());
                 }
-                inner = check_pattern(&mut arg.binding, &arg_typ, inner)?;
+                inner = check_pattern(&mut arg.binding, arg_typ, inner)?;
             }
             if let Some(defined_result) = result.as_ref() {
-                unify(&res_type, defined_result, defined_result.span(), &mut env)?;
+                unify(res_type, defined_result, defined_result.span(), &mut env)?;
             } else {
                 *result = Some(res_type.as_ref().clone());
             }
@@ -172,7 +170,7 @@ fn check_expr(expr: &mut Expr, typ: &Type, mut env: Env) -> Result<()> {
         }
         (expr, typ) => {
             let inferred = infer_expr(expr, env.clone())?;
-            unify(&typ, &inferred, expr.span(), &mut env)
+            unify(typ, &inferred, expr.span(), &mut env)
         }
     }
 }
@@ -223,13 +221,12 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
             Ok(result_typ)
         }
         Expr::Function {
-            captures,
             arguments,
             result,
             body,
             set,
-            name,
             span,
+            ..
         } => {
             let mut arg_types = Vec::new();
             for arg in arguments.iter_mut() {
@@ -266,9 +263,9 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
                 .collect::<Result<_>>()?;
             Ok(Type::Tuple(elem_types, *span))
         }
-        Expr::TupleAccess(tuple, field, span) => {
+        Expr::TupleAccess(tuple, field, _) => {
             let typ = infer_expr(tuple.as_mut(), env)?.normalize();
-            if let Type::Tuple(elem_types, type_span) = typ {
+            if let Type::Tuple(elem_types, _) = typ {
                 Ok(elem_types[*field].clone())
             } else {
                 panic!("tuple access elem type is not a tuple {:?}", typ)
@@ -289,7 +286,7 @@ fn infer_expr(expr: &mut Expr, mut env: Env) -> Result<Type> {
         }
         Expr::Match { head, cases, span } => {
             let head_typ = infer_expr(head.as_mut(), env.clone())?.normalize();
-            let Type::Constructor(typ_name, generics, typ_span) = head_typ else {
+            let Type::Constructor(typ_name, generics, _) = head_typ else {
                 panic!("match head is not an enum {:?}", head_typ)
             };
             let def = env.lookup_enum(&typ_name)?;
@@ -333,7 +330,7 @@ fn unify(given: &Type, expected: &Type, usage: Span, env: &mut Env) -> Result<()
         (Type::Integer(_), Type::Integer(_)) => Ok(()),
         (Type::Unification(cell), expected) => {
             if cell.is_some() {
-                unify(&*cell.get(), expected, usage, env)
+                unify(&cell.get(), expected, usage, env)
             } else {
                 cell.set(expected.clone());
                 Ok(())
@@ -341,7 +338,7 @@ fn unify(given: &Type, expected: &Type, usage: Span, env: &mut Env) -> Result<()
         }
         (given, Type::Unification(cell)) => {
             if cell.is_some() {
-                unify(given, &*cell.get(), usage, env)
+                unify(given, &cell.get(), usage, env)
             } else {
                 cell.set(given.clone());
                 Ok(())
@@ -354,11 +351,11 @@ fn unify(given: &Type, expected: &Type, usage: Span, env: &mut Env) -> Result<()
                 Err(Error::RigidTypeMismatch(
                     name1.clone(),
                     name2.clone(),
-                    usage.clone(),
+                    usage,
                 ))
             }
         }
-        (Type::Function(args1, res1, set1, span1), Type::Function(args2, res2, set2, span2)) => {
+        (Type::Function(args1, res1, set1, _), Type::Function(args2, res2, set2, _)) => {
             assert_eq!(args1.len(), args2.len());
             for (arg1, arg2) in args1.iter().zip(args2) {
                 unify(arg1, arg2, usage, env)?;
@@ -385,7 +382,7 @@ fn unify(given: &Type, expected: &Type, usage: Span, env: &mut Env) -> Result<()
                     args1.clone(),
                     name2.clone(),
                     args2.clone(),
-                    usage.clone(),
+                    usage,
                 ))
             }
         }
@@ -430,7 +427,7 @@ fn check_pattern(pattern: &mut Pattern, typ: &Type, mut env: Env) -> Result<Env>
         }
         (Pattern::Tuple(patterns, span), typ) => Err(Error::InappropriateTuplePattern(
             patterns.clone(),
-            span.clone(),
+            *span,
             typ.clone(),
         )),
     }

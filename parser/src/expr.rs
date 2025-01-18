@@ -7,18 +7,15 @@ use crate::{
 };
 
 use chumsky::{
-    prelude::Simple,
-    primitive::{end, filter, just},
     recursive::{self, Recursive},
-    text::{int, keyword, whitespace},
     Parser,
 };
 use ir::{
-    parsed::{Capture, ClosureArgument, Expr, MatchCase, Type, VariableCell},
+    parsed::{Capture, ClosureArgument, Expr, MatchCase, Type},
     token::Kind,
 };
 
-pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
+pub(crate) fn expr(env: &Env) -> parser!('_, Expr) {
     let mut expr = Recursive::declare();
     let integer =
         token(Kind::Integer).map(|token| Expr::Integer(env[token].parse().unwrap(), token.span));
@@ -108,7 +105,7 @@ pub(crate) fn expr<'a>(env: &'a Env) -> parser!('a, Expr) {
     expr
 }
 
-fn closure_argument<'a>(env: &'a Env) -> parser!('a, ClosureArgument) {
+fn closure_argument(env: &Env) -> parser!('_, ClosureArgument) {
     pattern(env)
         .then(token(Kind::Colon).ignore_then(typ(env)).or_not())
         .map(|(binding, typ)| ClosureArgument {
@@ -122,7 +119,7 @@ fn closure_argument<'a>(env: &'a Env) -> parser!('a, ClosureArgument) {
         })
 }
 
-pub(crate) fn typ<'a>(env: &'a Env) -> parser!('a, Type) {
+pub(crate) fn typ(env: &Env) -> parser!('_, Type) {
     recursive::recursive(|typ| {
         let int = token(Kind::Int).map(|token| Type::Integer(token.span));
         let var = identifier(env).map(Type::Rigid);

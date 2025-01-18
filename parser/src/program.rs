@@ -1,26 +1,19 @@
 use crate::{
     expr::{expr, typ},
     parser::{
-        brace_list_in, identifier, paren_list, paren_list_in, parser, square_list, token,
-        tuple_list_in, upper_identifier, Env,
+        brace_list_in, identifier, paren_list, parser, square_list, token, upper_identifier, Env,
     },
     pattern::pattern,
 };
 
-use chumsky::{
-    prelude::Simple,
-    primitive::{end, filter, just},
-    recursive::{self, Recursive},
-    text::{int, keyword, whitespace},
-    Parser,
-};
+use chumsky::{primitive::end, Parser};
 
 use ir::{
-    parsed::{Argument, Enum, EnumCase, Function, Program, Type, VariableCell},
-    token::{Kind, Token},
+    parsed::{Argument, Enum, EnumCase, Function, Program},
+    token::Kind,
 };
 
-pub(crate) fn program<'a>(env: &'a Env) -> parser!('a, Program) {
+pub(crate) fn program(env: &Env) -> parser!('_, Program) {
     enum_def(env)
         .repeated()
         .then(function(env).repeated())
@@ -31,7 +24,7 @@ pub(crate) fn program<'a>(env: &'a Env) -> parser!('a, Program) {
         })
 }
 
-fn function<'a>(env: &'a Env) -> parser!('a, Function) {
+fn function(env: &Env) -> parser!('_, Function) {
     token(Kind::Fn)
         .then(identifier(env))
         .then(
@@ -57,7 +50,7 @@ fn function<'a>(env: &'a Env) -> parser!('a, Function) {
         )
 }
 
-fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
+fn enum_def(env: &Env) -> parser!('_, Enum) {
     token(Kind::Enum)
         .then(upper_identifier(env))
         .then(
@@ -84,7 +77,7 @@ fn enum_def<'a>(env: &'a Env) -> parser!('a, Enum) {
         })
 }
 
-fn argument<'a>(env: &'a Env) -> parser!('a, Argument) {
+fn argument(env: &Env) -> parser!('_, Argument) {
     pattern(env)
         .then_ignore(token(Kind::Colon))
         .then(typ(env))

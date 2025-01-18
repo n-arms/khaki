@@ -36,8 +36,8 @@ pub fn patch_program(program: &Program, patcher: &mut Patcher) -> hir::Program {
         .collect();
     let enums = program
         .enums
-        .iter()
-        .map(|(_, def)| patch_enum(def, patcher))
+        .values()
+        .map(|def| patch_enum(def, patcher))
         .collect();
     hir::Program { functions, enums }
 }
@@ -124,7 +124,7 @@ fn patch_typ(typ: &Type, patcher: &mut Patcher) -> hir::Type {
         Type::Integer(_) => hir::Type::Integer,
         Type::Unification(cell) => {
             if cell.is_some() {
-                patch_typ(&*cell.get(), patcher)
+                patch_typ(&cell.get(), patcher)
             } else {
                 panic!("unresolved type")
             }
@@ -132,7 +132,7 @@ fn patch_typ(typ: &Type, patcher: &mut Patcher) -> hir::Type {
         Type::Rigid(name) => hir::Type::Variable(name.name.clone()),
         Type::Function(args, res, set, _) => hir::Type::Function(
             args.iter().map(|arg| patch_typ(arg, patcher)).collect(),
-            Box::new(patch_typ(&res, patcher)),
+            Box::new(patch_typ(res, patcher)),
             patcher.lambda_set_root(set.clone()),
         ),
         Type::Tuple(elems, _) => {
