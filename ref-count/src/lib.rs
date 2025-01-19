@@ -1,15 +1,17 @@
 use ir::base::Program;
 
 mod cycle_detector;
+mod dec;
 mod graph;
-mod patch;
+mod inc;
 
 pub fn refcount(program: &mut Program) {
     let patch = cycle_detector::indirect_fields(&program.definitions);
     for def in program.definitions.iter_mut() {
-        patch::patch_definition(def, &patch);
+        dec::patch_definition(def, &patch);
     }
     for func in program.functions.iter_mut() {
-        patch::patch_function(func, &patch);
+        dec::patch_function(func, &patch);
+        inc::patch_function(func, &patch);
     }
 }

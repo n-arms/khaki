@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use ir::{
-    base::{Block, Definition, Expr, Function, MatchCase, Stmt, Storage, Type, Variable},
+    base::{Block, Count, Definition, Expr, Function, MatchCase, Stmt, Storage, Type, Variable},
     hir::Identifier,
 };
 
@@ -76,16 +76,12 @@ fn patch_match(
 
 fn insert_delete(var: Variable, index: usize, block: &mut Block) {
     match &var.typ {
-        Type::Constructor(name) => {
-            let function = Identifier::from(format!("delete_{}", name.name));
+        Type::Constructor(_) => {
             block.stmts.insert(
                 index,
                 Stmt {
                     var: var.clone(),
-                    value: Expr::DirectCall {
-                        function,
-                        arguments: vec![var],
-                    },
+                    value: Expr::RefCount(Count::Decrement),
                 },
             );
         }
@@ -93,7 +89,7 @@ fn insert_delete(var: Variable, index: usize, block: &mut Block) {
     }
 }
 
-fn variables_used(expr: &Expr) -> HashSet<Variable> {
+pub fn variables_used(expr: &Expr) -> HashSet<Variable> {
     match expr {
         Expr::Integer(_) => HashSet::new(),
         Expr::TupleAccess(name, _) | Expr::Enum { argument: name, .. } | Expr::Variable(name) => {
@@ -101,21 +97,14 @@ fn variables_used(expr: &Expr) -> HashSet<Variable> {
         }
         Expr::DirectCall { arguments, .. } => arguments.into_iter().cloned().collect(),
         Expr::Tuple(elems) => elems.into_iter().cloned().collect(),
-        Expr::Match { head, cases } => {
-            let mut vars = HashSet::from([head.clone()]);
-            /*
-            for case in cases {
-                let mut inner_vars = variables_used_block(&case.body);
-                inner_vars.retain(|var| var != &case.binding);
-                vars.extend(inner_vars);
-            }
-            */
-            vars
+        Expr::Match { head, .. } => HashSet::from([head.clone()]),
+        Expr::RefCount(count) => {
+            unreachable!("reached refcount {:?} while assigning refcounts", count)
         }
     }
 }
 
-fn variables_used_block(block: &Block) -> Vec<Variable> {
+pub fn variables_used_block(block: &Block) -> Vec<Variable> {
     let mut defined = HashSet::new();
     let mut vars = Vec::new();
 

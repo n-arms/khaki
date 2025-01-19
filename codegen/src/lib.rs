@@ -52,6 +52,8 @@ fn gen_function(func: &Function, builder: &mut gen::Program) {
 fn gen_stmt(stmt: &Stmt, block: &mut gen::Block) {
     if let Expr::Match { head, cases } = &stmt.value {
         gen_match(&stmt.var, head, cases, block);
+    } else if let Expr::RefCount(count) = &stmt.value {
+        todo!()
     } else {
         let expr_format = gen_expr(&stmt.value, &stmt.var.typ);
         block.line(format!(
@@ -122,6 +124,7 @@ fn gen_expr(expr: &Expr, typ: &Type) -> String {
             )
         }
         Expr::Match { .. } => unreachable!(),
+        Expr::RefCount(_) => unreachable!(),
     }
 }
 

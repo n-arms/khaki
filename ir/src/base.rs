@@ -95,6 +95,7 @@ pub enum Expr {
         head: Variable,
         cases: Vec<MatchCase>,
     },
+    RefCount(Count),
 }
 
 #[derive(Clone)]
@@ -102,6 +103,12 @@ pub struct MatchCase {
     pub variant: Identifier,
     pub binding: Variable,
     pub body: Block,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Count {
+    Increment,
+    Decrement,
 }
 
 impl Variable {
@@ -221,7 +228,21 @@ impl Expr {
                 indent(ind, f)?;
                 write!(f, "}}")
             }
+            Expr::RefCount(count) => write!(f, "{:?}", count),
         }
+    }
+}
+
+impl fmt::Debug for Count {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Count::Increment => "ref ++",
+                Count::Decrement => "ref --",
+            }
+        )
     }
 }
 
