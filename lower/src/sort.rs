@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ir::base::{Definition, Enum, Identifier, Struct, Type};
+use ir::base::{Definition, Enum, Identifier, Storage, Struct, Type};
 
 pub(crate) fn sort_definitions(definitions: Vec<Definition>) -> Vec<Definition> {
     let map: HashMap<Identifier, &Definition> = definitions
@@ -48,7 +48,13 @@ fn dependencies(def: &Definition) -> Vec<Identifier> {
 fn enum_dependencies(def: &Enum) -> Vec<Identifier> {
     def.cases
         .iter()
-        .flat_map(|(_, field)| typ_dependencies(field))
+        .flat_map(|case| {
+            if case.storage == Storage::Inline {
+                typ_dependencies(&case.typ)
+            } else {
+                Vec::new()
+            }
+        })
         .collect()
 }
 

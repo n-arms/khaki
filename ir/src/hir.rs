@@ -73,23 +73,12 @@ impl Enum {
 pub struct EnumCase {
     pub name: Identifier,
     pub typ: Type,
-    pub storage: Storage,
 }
 
 impl EnumCase {
     pub fn new(name: Identifier, typ: Type) -> Self {
-        Self {
-            name,
-            typ,
-            storage: Storage::Inline,
-        }
+        Self { name, typ }
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Storage {
-    Inline,
-    ReferenceCounted,
 }
 
 #[derive(Clone)]

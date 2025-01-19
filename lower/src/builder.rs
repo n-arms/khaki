@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ir::{
-    base::{Block, Definition, Enum, Stmt, Struct, Type, Variable},
+    base::{Block, Definition, Enum, EnumCase, Stmt, Struct, Type, Variable},
     hir::Identifier,
 };
 
@@ -32,7 +32,7 @@ pub(crate) struct Env {
 }
 
 impl Env {
-    pub(crate) fn enum_def(&mut self, name: Identifier, cases: Vec<(Identifier, Type)>) {
+    pub(crate) fn enum_def(&mut self, name: Identifier, cases: Vec<EnumCase>) {
         self.definitions
             .push(Definition::Enum(Enum { name, cases }))
     }

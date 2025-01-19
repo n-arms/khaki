@@ -156,10 +156,10 @@ fn gen_enum(enum_def: &Enum, builder: &mut gen::Program) {
     let (tag_fields, union_fields) = enum_def
         .cases
         .iter()
-        .map(|(case, typ)| {
+        .map(|case| {
             (
-                format!("{}_{}", enum_def.name.name, case.name),
-                format!("{} {}", gen_type(typ), case.name),
+                format!("{}_{}", enum_def.name.name, case.name.name),
+                format!("{} {}", gen_type(&case.typ), case.name.name),
             )
         })
         .unzip();

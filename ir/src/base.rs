@@ -30,7 +30,20 @@ pub struct Struct {
 #[derive(Clone)]
 pub struct Enum {
     pub name: Identifier,
-    pub cases: Vec<(Identifier, Type)>,
+    pub cases: Vec<EnumCase>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct EnumCase {
+    pub name: Identifier,
+    pub typ: Type,
+    pub storage: Storage,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Storage {
+    Inline,
+    ReferenceCounted,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -96,6 +109,16 @@ impl Definition {
         match self {
             Definition::Struct(def) => &def.name,
             Definition::Enum(def) => &def.name,
+        }
+    }
+}
+
+impl EnumCase {
+    pub fn new(name: Identifier, typ: Type) -> Self {
+        Self {
+            name,
+            typ,
+            storage: Storage::Inline,
         }
     }
 }
@@ -226,7 +249,7 @@ impl fmt::Debug for Enum {
             f,
             self.cases
                 .iter()
-                .map(|(name, typ)| format!("{:?}({:?})", name, typ)),
+                .map(|case| format!("{:?}({:?})", case.name, case.typ)),
         )?;
         writeln!(f, "}}")
     }
