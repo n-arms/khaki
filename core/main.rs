@@ -7,6 +7,7 @@ use ir::token::Token;
 use lambda_set::defunctionalize_program;
 use lower::lower_program;
 use parser::parse_program;
+use ref_count::refcount;
 use typer::type_program;
 
 use std::{
@@ -52,9 +53,12 @@ fn main() {
 
             println!("defunc: {:?}", flat);
 
-            let base = lower_program(&flat);
+            let mut base = lower_program(&flat);
 
             println!("lowered {:?}", base);
+
+            refcount(&mut base);
+            println!("refcounted {:?}", base);
 
             let c = gen_program(&base).generate();
 

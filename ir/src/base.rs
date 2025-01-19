@@ -24,7 +24,13 @@ pub enum Definition {
 #[derive(Clone)]
 pub struct Struct {
     pub name: Identifier,
-    pub fields: Vec<Type>,
+    pub fields: Vec<StructField>,
+}
+
+#[derive(Clone)]
+pub struct StructField {
+    pub typ: Type,
+    pub storage: Storage,
 }
 
 #[derive(Clone)]
@@ -52,7 +58,7 @@ pub enum Type {
     Integer,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Variable {
     pub name: Identifier,
     pub typ: Type,
@@ -109,6 +115,15 @@ impl Definition {
         match self {
             Definition::Struct(def) => &def.name,
             Definition::Enum(def) => &def.name,
+        }
+    }
+}
+
+impl StructField {
+    pub fn new(typ: Type) -> Self {
+        Self {
+            typ,
+            storage: Storage::Inline,
         }
     }
 }
@@ -242,16 +257,32 @@ impl fmt::Debug for Struct {
     }
 }
 
+impl fmt::Debug for StructField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.storage == Storage::Inline {
+            write!(f, "{:?}", self.typ)
+        } else {
+            write!(f, "Rc[{:?}]", self.typ)
+        }
+    }
+}
+
 impl fmt::Debug for Enum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "enum {:?} {{", self.name)?;
-        comma_list(
-            f,
-            self.cases
-                .iter()
-                .map(|case| format!("{:?}({:?})", case.name, case.typ)),
-        )?;
+        comma_list(f, &self.cases)?;
         writeln!(f, "}}")
+    }
+}
+
+impl fmt::Debug for EnumCase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}(", self.name)?;
+        if self.storage == Storage::Inline {
+            write!(f, "{:?})", self.typ)
+        } else {
+            write!(f, "Rc[{:?}])", self.typ)
+        }
     }
 }
 

@@ -59,7 +59,11 @@ fn enum_dependencies(def: &Enum) -> Vec<Identifier> {
 }
 
 fn struct_dependencies(strukt: &Struct) -> Vec<Identifier> {
-    strukt.fields.iter().flat_map(typ_dependencies).collect()
+    strukt
+        .fields
+        .iter()
+        .flat_map(|field| typ_dependencies(&field.typ))
+        .collect()
 }
 
 fn typ_dependencies(typ: &Type) -> Vec<Identifier> {

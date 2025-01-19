@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ir::{
-    base::{Block, Definition, Enum, EnumCase, Stmt, Struct, Type, Variable},
+    base::{Block, Definition, Enum, EnumCase, Stmt, Struct, StructField, Type, Variable},
     hir::Identifier,
 };
 
@@ -45,7 +45,10 @@ impl Env {
             self.tuples.insert(fields.to_vec(), name.clone());
             self.definitions.push(Definition::Struct(Struct {
                 name: name.clone(),
-                fields: fields.to_vec(),
+                fields: fields
+                    .iter()
+                    .map(|typ| StructField::new(typ.clone()))
+                    .collect(),
             }));
             name
         }

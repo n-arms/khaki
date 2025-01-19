@@ -147,7 +147,7 @@ fn gen_struct(struct_def: &Struct, builder: &mut gen::Program) {
         .fields
         .iter()
         .enumerate()
-        .map(|(i, field)| format!("{} field{}", gen_type(field), i))
+        .map(|(i, field)| format!("{} field{}", gen_type(&field.typ), i))
         .collect();
     builder.definition(Kind::Struct, struct_def.name.name.clone(), fields);
 }
