@@ -39,10 +39,10 @@ struct List {
 Which won't compile in `c` because you can't have a direct reference to a `List` before the `List` struct is defined.
 This makes sense because it means in order to have enough stack space to allocate a `List`, you need enough stack space for a `Cons`, but for that you need enough for a `List`, and so on to infinity.
 The way that `c` programmers normally address this issue when writing linked lists is either to:
-1. Don't use linked lists.
+1. Not use linked lists.
 2. Change the `Cons cons` field of `List` to `Cons *cons`, and dynamically allocate each new `Cons` cell using `malloc`.
 
-Although option 1 does make a good point that it might be worthwhile to have a built-in performance list data structure other than a linked list, we still want to support recursive data types.
+Although option 1 does make a good point that it might be worthwhile to have a built-in performant list data structure other than a linked list, we still want to support recursive data types.
 This means that in order to support recursive data structures, `Khaki` needs dynamic memory allocation.
 
 ## Khaki's Approach to Dynamic Memory Allocation
@@ -75,7 +75,7 @@ For these reasons, Khaki uses reference counting to manage its memory.
 While it would be simplest to force users to manually add `Rc`s wherever they deem necessary in recursive data structures, it is possible to have the compiler insert all the `Rc`s and not force the user to deal with the complexity of memory management.
 The compiler needs to construct a directed graph of each enum, where there is an edge from one enum to another if the first enum contains the other.
 Each cycle in this graph represents a recursive data structure, and by replacing some enum arguments with an `Rc` to the argument and cutting the corresponding edges, the compiler could eliminate all cycles.
-While the problem of which edges to cut to insert the minimum number of `Rc`s is actually (NP-hard)[https://en.wikipedia.org/wiki/Feedback_arc_set], a simple greedy algorithm would perform well enough to work for `Khaki`'s purposes.
+While the problem of which edges to cut to insert the minimum number of `Rc`s is actually [NP-hard](https://en.wikipedia.org/wiki/Feedback_arc_set), a simple greedy algorithm would perform well enough to work for `Khaki`'s purposes.
 
 To support this paradigm, no existing compiler passes would need to be changed. Instead, a `ref-count` pass could be inserted directly before `lower`ing to `base` that inserts `Rc`s wherever necessary and fixes existing code to work with them.
 
